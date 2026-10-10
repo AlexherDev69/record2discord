@@ -204,6 +204,20 @@ h2 {
   margin: 12px 0 0;
 }
 
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.guide-step ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--text-muted);
+}
+
 .fields {
   display: flex;
   flex-direction: column;

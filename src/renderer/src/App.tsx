@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { CalibrationPanel } from './components/CalibrationPanel';
+import { ObsGuide } from './components/ObsGuide';
 import { SettingsForm } from './components/SettingsForm';
 import { StatusPanel } from './components/StatusPanel';
 import { useAppState } from './hooks/useAppState';
 import { useSettings } from './hooks/useSettings';
 
-type TabId = 'status' | 'settings' | 'calibration';
+type TabId = 'status' | 'settings' | 'calibration' | 'obsGuide';
 
 interface Tab {
   id: TabId;
@@ -16,6 +17,7 @@ const TABS: Tab[] = [
   { id: 'status', label: 'État' },
   { id: 'settings', label: 'Réglages' },
   { id: 'calibration', label: 'Calibration' },
+  { id: 'obsGuide', label: 'Guide OBS' },
 ];
 
 export function App() {
@@ -47,6 +49,7 @@ export function App() {
         {activeTab === 'status' && <StatusPanel state={state} webhookConfigured={settings.discordWebhookUrl !== ''} />}
         {activeTab === 'settings' && <SettingsForm settings={settings} onSave={save} />}
         {activeTab === 'calibration' && <CalibrationPanel settings={settings} onSave={save} />}
+        {activeTab === 'obsGuide' && <ObsGuide />}
       </main>
     </div>
   );
