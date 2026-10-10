@@ -1,0 +1,126 @@
+import { useEffect, useState } from 'react';
+import type { CalibrationPreview, IpcResult, RegionPreview, ScoreRegions, Settings } from '../../../shared/types';
+import { RegionSelector, type Side } from './RegionSelector';
+
+interface CalibrationPanelProps {
+  settings: Settings;
+  onSave: (settings: Settings) => Promise<IpcResult<Settings>>;
+}
+
+interface SidePreviewProps {
+  label: string;
+  preview: RegionPreview;
+}
+
+// Leaves time to switch back to the game, which pauses when it loses focus.
+const CAPTURE_DELAY_SECONDS = 10;
+const MS_PER_SECOND = 1000;
+
+const SIDE_LABELS: Record<Side, string> = {
+  home: 'Score du haut',
+  away: 'Score du bas',
+};
+
+function describePreview(preview: RegionPreview): string {
+  if (!preview.looksLikeScoreboard) {
+    return 'Pas un chiffre du bandeau';
+  }
+  return preview.digit === null ? 'Chiffre non reconnu' : `Lu : ${preview.digit}`;
+}
+
+function SidePreview({ label, preview }: SidePreviewProps) {
+  return (
+    <div className="preview">
+      <img src={preview.imageDataUrl} alt={label} />
+      <div>
+        <div className="indicator-label">{label}</div>
+        <div className="indicator-detail">{describePreview(preview)}</div>
+      </div>
+    </div>
+  );
+}
+
+export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
+  const [frame, setFrame] = useState<string | null>(null);
+  const [regions, setRegions] = useState<ScoreRegions>(settings.scoreRegions);
+  const [activeSide, setActiveSide] = useState<Side>('home');
+  const [preview, setPreview] = useState<CalibrationPreview | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (frame === null) {
+      return;
+    }
+    void window.api.previewRegions(regions).then((result) => setPreview(result.success ? result.data : null));
+  }, [frame, regions]);
+
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(countdown - 1), MS_PER_SECOND);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const capture = async (): Promise<void> => {
+    setMessage(null);
+    setCountdown(CAPTURE_DELAY_SECONDS);
+    const result = await window.api.captureFrame(CAPTURE_DELAY_SECONDS);
+    setCountdown(null);
+    if (result.success) {
+      setFrame(result.data);
+    } else {
+      setMessage(result.error);
+    }
+  };
+
+  const save = async (): Promise<void> => {
+    const result = await onSave({ ...settings, scoreRegions: regions });
+    setMessage(result.success ? 'Zones enregistrées.' : 'Zones invalides : redessine-les sur l’image.');
+  };
+
+  return (
+    <div className="stack">
+      <section className="card">
+        <h2>Zones du score</h2>
+        <p className="muted">
+          À refaire seulement si le bandeau change de place. Lance la capture, reviens dans le jeu en plein match, puis
+          entoure chaque chiffre du score au plus près, sans toucher le bord du bandeau.
+        </p>
+        <div className="actions">
+          <button className="button" disabled={countdown !== null} onClick={() => void capture()}>
+            {countdown === null ? `Capturer dans ${CAPTURE_DELAY_SECONDS} s` : `Capture dans ${countdown} s…`}
+          </button>
+          {(Object.keys(SIDE_LABELS) as Side[]).map((side) => (
+            <button
+              key={side}
+              className={side === activeSide ? `button button-side-${side}` : 'button button-secondary'}
+              onClick={() => setActiveSide(side)}
+            >
+              Dessiner : {SIDE_LABELS[side].toLowerCase()}
+            </button>
+          ))}
+          <button className="button" disabled={frame === null} onClick={() => void save()}>
+            Enregistrer les zones
+          </button>
+        </div>
+        {message !== null && <p className="message message-fair">{message}</p>}
+        {preview !== null && (
+          <div className="previews">
+            <SidePreview label={SIDE_LABELS.home} preview={preview.home} />
+            <SidePreview label={SIDE_LABELS.away} preview={preview.away} />
+          </div>
+        )}
+      </section>
+      {frame !== null && (
+        <RegionSelector
+          frameDataUrl={frame}
+          regions={regions}
+          activeSide={activeSide}
+          onChange={(region) => setRegions((current) => ({ ...current, [activeSide]: region }))}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,85 @@
+{
+  "name": "record2discord",
+  "productName": "Record2Discord",
+  "version": "1.0.0",
+  "description": "Clips goals automatically and posts them to a Discord channel",
+  "author": "record2discord",
+  "private": true,
+  "type": "module",
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && electron-vite build",
+    "dist": "pnpm build && electron-builder --win",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "obs-websocket-js": "^5.0.8",
+    "pino": "^10.4.0",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "ffmpeg-static": "^5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tslib": "^2.8.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  },
+  "packageManager": "pnpm@10.26.1+sha512.664074abc367d2c9324fdc18037097ce0a8f126034160f709928e9e9f95d98714347044e5c3164d65bd5da6c59c6be362b107546292a8eecb7999196e5ce58fa",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "ffmpeg-static"
+    ]
+  },
+  "build": {
+    "appId": "com.record2discord.app",
+    "productName": "Record2Discord",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+        "to": "ffmpeg.exe"
+      },
+      {
+        "from": "assets/digits.json",
+        "to": "digits.json"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Record2Discord-Setup-${version}.exe"
+    }
+  }
+}
