@@ -13,6 +13,12 @@ export interface DigitRecognizer {
   learn(digit: number, glyph: Glyph): void;
 }
 
+export interface Goal {
+  score: Score;
+  /** Side whose score went up. */
+  scorer: keyof Score;
+}
+
 interface ConfirmedState {
   reading: ScoreboardReading;
   score: Score;
@@ -45,7 +51,7 @@ export class GoalDetector {
     return this.confirmed?.score ?? null;
   }
 
-  update(reading: ScoreboardReading | null): Score | null {
+  update(reading: ScoreboardReading | null): Goal | null {
     if (reading === null) {
       this.candidate = null;
       this.candidateReads = 0;
@@ -60,16 +66,16 @@ export class GoalDetector {
       return null;
     }
 
-    const goalScore = previous === null ? null : this.scoreAfterGoal(previous, reading);
-    this.confirmed = { reading, score: goalScore ?? this.baselineScore(reading) };
-    return goalScore;
+    const goal = previous === null ? null : this.goalBetween(previous, reading);
+    this.confirmed = { reading, score: goal?.score ?? this.baselineScore(reading) };
+    return goal;
   }
 
   private baselineScore(reading: ScoreboardReading): Score {
     return { home: this.digits.recognize(reading.home), away: this.digits.recognize(reading.away) };
   }
 
-  private scoreAfterGoal(previous: ConfirmedState, reading: ScoreboardReading): Score | null {
+  private goalBetween(previous: ConfirmedState, reading: ScoreboardReading): Goal | null {
     const homeChanged = !isSameGlyph(previous.reading.home, reading.home);
     const awayChanged = !isSameGlyph(previous.reading.away, reading.away);
     if (homeChanged === awayChanged) {
@@ -88,6 +94,6 @@ export class GoalDetector {
     if (expected !== null && expected <= MAX_SINGLE_DIGIT && recognized !== expected) {
       this.digits.learn(expected, reading[side]);
     }
-    return { ...previous.score, [side]: expected ?? recognized };
+    return { score: { ...previous.score, [side]: expected ?? recognized }, scorer: side };
   }
 }

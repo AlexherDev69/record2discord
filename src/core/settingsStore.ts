@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Settings } from '../shared/types';
 import { logger } from './logger';
-import { DEFAULT_SETTINGS, parseSettings } from './settings';
+import { DEFAULT_SETTINGS, parseStoredSettings } from './settings';
 
 /** Turns the settings file content into bytes and back, so secrets can be encrypted at rest. */
 export interface SettingsCodec {
@@ -20,7 +20,7 @@ export class SettingsStore {
       return DEFAULT_SETTINGS;
     }
     try {
-      return parseSettings(JSON.parse(this.codec.decode(readFileSync(this.filePath))));
+      return parseStoredSettings(JSON.parse(this.codec.decode(readFileSync(this.filePath))));
     } catch (error: unknown) {
       logger.warn({ err: error }, 'Settings file is unreadable, falling back to defaults');
       return DEFAULT_SETTINGS;

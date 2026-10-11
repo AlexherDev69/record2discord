@@ -23,7 +23,7 @@ const STEPS: GuideStep[] = [
     title: 'Régler l’enregistrement',
     instructions: [
       'Paramètres > Sortie : passe le Mode de sortie sur Avancé.',
-      'Onglet Enregistrement : format MP4 ou MKV, encodeur vidéo NVIDIA NVENC H.264.',
+      'Onglet Enregistrement : format MP4 ou MKV, encodeur matériel H.264 de ta carte graphique (NVIDIA NVENC, AMD HW ou QuickSync).',
       'Contrôle du débit : CBR à 20 000 Kbps, largement suffisant pour des clips Discord.',
     ],
   },
@@ -58,7 +58,7 @@ export function ObsGuide() {
     <section className="card">
       <h2>Configurer OBS</h2>
       <p className="muted">
-        À faire une seule fois. Il faut OBS Studio 28 ou plus récent et une carte graphique NVIDIA.
+        À faire une seule fois. Il faut OBS Studio 28 ou plus récent.
       </p>
       <ol className="guide">
         {STEPS.map((step) => (

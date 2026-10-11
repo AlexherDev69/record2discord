@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import type { Region, ScoreRegions } from '../../../shared/types';
-import { regionFromPoints, type Point } from '../lib/region';
+import { isDrawnRegion, regionFromPoints, type Point } from '../lib/region';
 
 export type Side = keyof ScoreRegions;
 
@@ -9,21 +9,25 @@ interface RegionSelectorProps {
   regions: ScoreRegions;
   activeSide: Side;
   onChange: (region: Region) => void;
+  /** Called once a rectangle has been drawn. */
+  onDrawEnd: () => void;
 }
 
 // The frame is shown magnified, since a score digit is only a few dozen pixels wide.
 const ZOOM = 2;
 const SIDES: Side[] = ['home', 'away'];
 const PERCENT = 100;
+const LEFT_MOUSE_BUTTON = 0;
 
 function toPercent(fraction: number): string {
   return `${fraction * PERCENT}%`;
 }
 
 /** Shows the captured frame and lets the user draw the active score region with the mouse. */
-export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: RegionSelectorProps) {
+export function RegionSelector({ frameDataUrl, regions, activeSide, onChange, onDrawEnd }: RegionSelectorProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<Point | null>(null);
+  const hasDrawn = useRef(false);
   const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
   const pointFromEvent = (event: MouseEvent): Point | null => {
@@ -36,8 +40,21 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: 
 
   const drag = (event: MouseEvent): void => {
     const point = pointFromEvent(event);
-    if (dragStart.current !== null && point !== null) {
-      onChange(regionFromPoints(dragStart.current, point));
+    if (dragStart.current === null || point === null) {
+      return;
+    }
+    const region = regionFromPoints(dragStart.current, point);
+    if (isDrawnRegion(region)) {
+      onChange(region);
+      hasDrawn.current = true;
+    }
+  };
+
+  const endDrag = (): void => {
+    dragStart.current = null;
+    if (hasDrawn.current) {
+      hasDrawn.current = false;
+      onDrawEnd();
     }
   };
 
@@ -47,15 +64,13 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: 
         ref={frameRef}
         className="frame"
         onMouseDown={(event) => {
-          dragStart.current = pointFromEvent(event);
+          if (event.button === LEFT_MOUSE_BUTTON) {
+            dragStart.current = pointFromEvent(event);
+          }
         }}
         onMouseMove={drag}
-        onMouseUp={() => {
-          dragStart.current = null;
-        }}
-        onMouseLeave={() => {
-          dragStart.current = null;
-        }}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
       >
         <img
           src={frameDataUrl}

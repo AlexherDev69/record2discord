@@ -1,10 +1,12 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, Menu, nativeImage, safeStorage, Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, safeStorage, shell, Tray } from 'electron';
+import { LATEST_RELEASE_URL, REPOSITORY_URL, UPDATE_CHECK_INTERVAL_MS } from '../core/config';
 import { addLogFile, logger } from '../core/logger';
 import { SettingsStore, type SettingsCodec } from '../core/settingsStore';
 import { DigitLibrary } from '../features/detection/data/digitLibrary';
-import { IPC_CHANNELS, type Settings } from '../shared/types';
+import { TeamNameReader } from '../features/detection/data/teamNameReader';
+import { IPC_CHANNELS, type AppState, type ExternalPage, type Settings } from '../shared/types';
 import { AppController } from './appController';
 import { registerIpcHandlers } from './ipc';
 
@@ -26,13 +28,29 @@ function userDataPath(fileName: string): string {
   return join(app.getPath('userData'), fileName);
 }
 
-/** Copies the digits shipped with the app on first run, so digits learned later survive updates. */
-function ensureDigitLibrary(): string {
+/**
+ * Copies the digits shipped with the app on first run, so digits learned later survive updates.
+ * A library that became unreadable is replaced by the shipped one instead of blocking the start.
+ */
+function loadDigitLibrary(): DigitLibrary {
   const libraryPath = userDataPath('digits.json');
+  const shippedPath = bundledPath('digits.json', 'assets/digits.json');
   if (!existsSync(libraryPath)) {
-    copyFileSync(bundledPath('digits.json', 'assets/digits.json'), libraryPath);
+    copyFileSync(shippedPath, libraryPath);
   }
-  return libraryPath;
+  try {
+    return DigitLibrary.load(libraryPath);
+  } catch (error: unknown) {
+    logger.warn({ err: error }, 'Digit library is unreadable, restoring the shipped one');
+    copyFileSync(shippedPath, libraryPath);
+    return DigitLibrary.load(libraryPath);
+  }
+}
+
+function sendState(state: AppState): void {
+  if (window !== null && !window.isDestroyed()) {
+    window.webContents.send(IPC_CHANNELS.stateChanged, state);
+  }
 }
 
 const encryptedCodec: SettingsCodec = {
@@ -43,6 +61,21 @@ const encryptedCodec: SettingsCodec = {
 function applyStartWithWindows(settings: Settings): void {
   if (app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: settings.startWithWindows, args: [HIDDEN_FLAG] });
+  }
+}
+
+/** Binds the system-wide shortcut, which works while the game has the focus. */
+function applyManualClipShortcut(shortcut: string, onPressed: () => void): void {
+  globalShortcut.unregisterAll();
+  if (shortcut === '') {
+    return;
+  }
+  try {
+    if (!globalShortcut.register(shortcut, onPressed)) {
+      logger.warn({ shortcut }, 'Shortcut is already used by another application');
+    }
+  } catch (error: unknown) {
+    logger.warn({ err: error, shortcut }, 'Shortcut could not be registered');
   }
 }
 
@@ -68,13 +101,25 @@ function createWindow(): BrowserWindow {
       created.hide();
     }
   });
+  // The window only ever shows the app itself: it has access to the settings.
+  created.webContents.on('will-navigate', (event) => event.preventDefault());
+  created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   const devServerUrl = process.env.ELECTRON_RENDERER_URL;
-  if (devServerUrl) {
+  if (devServerUrl && !app.isPackaged) {
     void created.loadURL(devServerUrl);
   } else {
     void created.loadFile(join(import.meta.dirname, '../renderer/index.html'));
   }
   return created;
+}
+
+const EXTERNAL_PAGE_URLS: Record<ExternalPage, string> = {
+  repository: REPOSITORY_URL,
+  latestRelease: LATEST_RELEASE_URL,
+};
+
+async function openExternalPage(page: ExternalPage): Promise<void> {
+  await shell.openExternal(EXTERNAL_PAGE_URLS[page]);
 }
 
 function createTray(): Tray {
@@ -83,6 +128,7 @@ function createTray(): Tray {
   created.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Ouvrir', click: showWindow },
+      { label: 'Page GitHub', click: () => void openExternalPage('repository') },
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() },
     ]),
@@ -97,16 +143,23 @@ async function bootstrap(): Promise<void> {
 
   const controller = new AppController({
     store: new SettingsStore(userDataPath('settings.bin'), encryptedCodec),
-    digits: DigitLibrary.load(ensureDigitLibrary()),
+    digits: loadDigitLibrary(),
+    teamNames: new TeamNameReader(bundledPath('tessdata', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int')),
     ffmpegPath: bundledPath('ffmpeg.exe', 'node_modules/ffmpeg-static/ffmpeg.exe'),
-    onStateChanged: (state) => window?.webContents.send(IPC_CHANNELS.stateChanged, state),
-    onSettingsApplied: applyStartWithWindows,
+    appVersion: app.getVersion(),
+    onStateChanged: sendState,
+    onSettingsApplied: (settings) => {
+      applyStartWithWindows(settings);
+      applyManualClipShortcut(settings.manualClipShortcut, () => void controller.publishManualClip());
+    },
   });
-  registerIpcHandlers(controller);
+  registerIpcHandlers(controller, openExternalPage);
   window = createWindow();
   tray = createTray();
   controller.start();
   logger.info('Application started');
+  void controller.checkForUpdate();
+  setInterval(() => void controller.checkForUpdate(), UPDATE_CHECK_INTERVAL_MS);
 
   app.on('before-quit', () => {
     isQuitting = true;
@@ -118,7 +171,11 @@ if (app.requestSingleInstanceLock()) {
   app.on('second-instance', showWindow);
   // The app lives in the tray, so it must not quit when its window is hidden or closed.
   app.on('window-all-closed', () => undefined);
-  void bootstrap();
+  // A failed start must not leave an invisible process holding the single-instance lock.
+  bootstrap().catch((error: unknown) => {
+    logger.error({ err: error }, 'Application could not start');
+    app.exit(1);
+  });
 } else {
   app.quit();
 }

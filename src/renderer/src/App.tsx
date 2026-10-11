@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { AppFooter } from './components/AppFooter';
 import { CalibrationPanel } from './components/CalibrationPanel';
 import { ObsGuide } from './components/ObsGuide';
 import { SettingsForm } from './components/SettingsForm';
 import { StatusPanel } from './components/StatusPanel';
+import { UpdateBanner } from './components/UpdateBanner';
 import { useAppState } from './hooks/useAppState';
 import { useSettings } from './hooks/useSettings';
 
@@ -45,12 +47,14 @@ export function App() {
           ))}
         </nav>
       </header>
+      {state.availableUpdate !== null && <UpdateBanner version={state.availableUpdate} />}
       <main className="content">
         {activeTab === 'status' && <StatusPanel state={state} webhookConfigured={settings.discordWebhookUrl !== ''} />}
         {activeTab === 'settings' && <SettingsForm settings={settings} onSave={save} />}
         {activeTab === 'calibration' && <CalibrationPanel settings={settings} onSave={save} />}
         {activeTab === 'obsGuide' && <ObsGuide />}
       </main>
+      <AppFooter />
     </div>
   );
 }

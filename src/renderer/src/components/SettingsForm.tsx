@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from '../../../core/config';
-import type { IpcResult, Settings } from '../../../shared/types';
+import type { Settings } from '../../../shared/types';
+import { useAutoSave, type AutoSaveStatus } from '../hooks/useAutoSave';
+import type { SaveSettings } from '../hooks/useSettings';
+import { changedFieldPatches } from '../lib/settingsPatch';
 import { ClipQualityHint } from './ClipQualityHint';
 import { CheckboxField, NumberField, Section, SelectField, TextField } from './fields';
+import { ShortcutField } from './ShortcutField';
 
 interface SettingsFormProps {
   settings: Settings;
-  onSave: (settings: Settings) => Promise<IpcResult<Settings>>;
+  onSave: SaveSettings;
 }
 
 interface Feedback {
@@ -20,6 +24,12 @@ const MAX_SIZE_LABELS: Record<number, string> = {
   100: '100 Mo (serveur boost niveau 3)',
 };
 
+const SAVE_STATUS_LABELS: Record<AutoSaveStatus, string> = {
+  idle: 'Les réglages s’enregistrent tout seuls.',
+  saved: 'Réglages enregistrés.',
+  invalid: 'Une valeur n’est pas valide et n’a pas été enregistrée : vérifie l’URL du webhook, l’adresse d’OBS et les nombres.',
+};
+
 export function SettingsForm({ settings, onSave }: SettingsFormProps) {
   const [draft, setDraft] = useState<Settings>(settings);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -29,14 +39,19 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
     setFeedback(null);
   };
 
-  const save = async (): Promise<void> => {
-    const result = await onSave(draft);
-    setFeedback(
-      result.success
-        ? { kind: 'good', text: 'Réglages enregistrés.' }
-        : { kind: 'error', text: 'Réglages invalides : vérifie l’URL du webhook et les valeurs saisies.' },
-    );
-  };
+  const saved = useRef(settings);
+
+  const saveStatus = useAutoSave(draft, async (edited) => {
+    let accepted = true;
+    for (const patch of changedFieldPatches(saved.current, edited)) {
+      if ((await onSave(patch)).success) {
+        saved.current = { ...saved.current, ...patch };
+      } else {
+        accepted = false;
+      }
+    }
+    return accepted;
+  });
 
   const testWebhook = async (): Promise<void> => {
     const result = await window.api.testWebhook(draft.discordWebhookUrl);
@@ -58,7 +73,7 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
         />
         <TextField
           label="Message"
-          hint="{home} et {away} sont remplacés par le score."
+          hint="{home} et {away} : scores. {homeTeam} et {awayTeam} : équipe à domicile (en haut) et à l’extérieur (en bas). {scorer} : équipe qui a marqué."
           value={draft.messageTemplate}
           onChange={(value) => update('messageTemplate', value)}
         />
@@ -111,6 +126,15 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
         />
       </Section>
 
+      <Section title="Extrait manuel">
+        <ShortcutField
+          label="Raccourci clavier"
+          hint="Fonctionne aussi en jeu : envoie les dernières secondes sur Discord (durée du clip ci-dessus). La combinaison n’est alors plus transmise au jeu. F1 à F24 seules, ou Ctrl, Alt, Maj avec une autre touche. Retour arrière pour le retirer."
+          value={draft.manualClipShortcut}
+          onChange={(value) => update('manualClipShortcut', value)}
+        />
+      </Section>
+
       <Section title="OBS">
         <div className="field-row">
           <TextField
@@ -144,9 +168,9 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
       </Section>
 
       <div className="actions">
-        <button className="button" onClick={() => void save()}>
-          Enregistrer
-        </button>
+        <span className={`message message-${saveStatus === 'invalid' ? 'error' : 'good'}`}>
+          {SAVE_STATUS_LABELS[saveStatus]}
+        </span>
         {feedback !== null && <span className={`message message-${feedback.kind}`}>{feedback.text}</span>}
       </div>
     </div>

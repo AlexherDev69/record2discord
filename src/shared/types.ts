@@ -31,6 +31,10 @@ export interface Settings {
   obsPath: string;
   startWithWindows: boolean;
   scoreRegions: ScoreRegions;
+  /** Team abbreviations whose goals are recorded, as typed by the user. Empty records every goal. */
+  recordedTeams: string;
+  /** System-wide shortcut posting the last seconds on demand, e.g. `Ctrl+Shift+F9`. Empty disables it. */
+  manualClipShortcut: string;
 }
 
 export interface WatcherStatus {
@@ -43,7 +47,8 @@ export interface WatcherStatus {
 export interface GoalRecord {
   /** Detection time in milliseconds since epoch, also used as identifier. */
   time: number;
-  score: Score;
+  /** Null for a clip requested with the keyboard shortcut. */
+  score: Score | null;
   published: boolean;
   error: string | null;
 }
@@ -51,12 +56,23 @@ export interface GoalRecord {
 export interface AppState {
   status: WatcherStatus;
   goals: GoalRecord[];
+  /** Version of a newer release available for download, or null when up to date. */
+  availableUpdate: string | null;
+}
+
+/** Web pages the window can ask to open in the browser. Only these fixed pages can be opened. */
+export const EXTERNAL_PAGES = ['repository', 'latestRelease'] as const;
+export type ExternalPage = (typeof EXTERNAL_PAGES)[number];
+
+export interface AppInfo {
+  version: string;
 }
 
 export interface RegionPreview {
   imageDataUrl: string;
   looksLikeScoreboard: boolean;
   digit: number | null;
+  teamName: string | null;
 }
 
 export interface CalibrationPreview {
@@ -69,12 +85,16 @@ export type IpcResult<T> = { success: true; data: T } | { success: false; error:
 /** API exposed to the renderer by the preload script. */
 export interface AppApi {
   getSettings(): Promise<Settings>;
-  saveSettings(settings: Settings): Promise<IpcResult<Settings>>;
+  /** Saves the given fields only, so that screens editing different fields cannot overwrite each other. */
+  saveSettings(patch: Partial<Settings>): Promise<IpcResult<Settings>>;
   getState(): Promise<AppState>;
   onState(listener: (state: AppState) => void): () => void;
   testWebhook(webhookUrl: string): Promise<IpcResult<null>>;
   captureFrame(delaySeconds: number): Promise<IpcResult<string>>;
   previewRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
+  previewLiveRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
+  getAppInfo(): Promise<AppInfo>;
+  openExternalPage(page: ExternalPage): Promise<IpcResult<null>>;
 }
 
 export const IPC_CHANNELS = {
@@ -85,4 +105,7 @@ export const IPC_CHANNELS = {
   testWebhook: 'discord:test',
   captureFrame: 'calibration:capture',
   previewRegions: 'calibration:preview',
+  previewLiveRegions: 'calibration:preview-live',
+  getAppInfo: 'app:info',
+  openExternalPage: 'app:open-page',
 } as const;
