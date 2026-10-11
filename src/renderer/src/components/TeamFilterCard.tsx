@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { IpcResult, Settings } from '../../../shared/types';
+import { useAutoSave } from '../hooks/useAutoSave';
 import { Section, TextField } from './fields';
 
 interface TeamFilterCardProps {
@@ -10,12 +11,10 @@ interface TeamFilterCardProps {
 /** Lets the user restrict the recorded goals to the teams they name. */
 export function TeamFilterCard({ settings, onSave }: TeamFilterCardProps) {
   const [recordedTeams, setRecordedTeams] = useState(settings.recordedTeams);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const save = async (): Promise<void> => {
-    const result = await onSave({ ...settings, recordedTeams });
-    setMessage(result.success ? 'Équipes enregistrées.' : 'Texte trop long.');
-  };
+  const saveStatus = useAutoSave(
+    recordedTeams,
+    async (value) => (await onSave({ ...settings, recordedTeams: value })).success,
+  );
 
   return (
     <Section title="Équipes à enregistrer">
@@ -26,12 +25,11 @@ export function TeamFilterCard({ settings, onSave }: TeamFilterCardProps) {
         value={recordedTeams}
         onChange={setRecordedTeams}
       />
-      <div className="actions">
-        <button className="button" onClick={() => void save()}>
-          Enregistrer les équipes
-        </button>
-        {message !== null && <p className="message message-fair">{message}</p>}
-      </div>
+      {saveStatus !== 'idle' && (
+        <p className={`message message-${saveStatus === 'saved' ? 'good' : 'error'}`}>
+          {saveStatus === 'saved' ? 'Équipes enregistrées.' : 'Non enregistré : texte trop long.'}
+        </p>
+      )}
     </Section>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from '../../../core/config';
 import type { IpcResult, Settings } from '../../../shared/types';
+import { useAutoSave, type AutoSaveStatus } from '../hooks/useAutoSave';
 import { ClipQualityHint } from './ClipQualityHint';
 import { CheckboxField, NumberField, Section, SelectField, TextField } from './fields';
 import { ShortcutField } from './ShortcutField';
@@ -21,6 +22,12 @@ const MAX_SIZE_LABELS: Record<number, string> = {
   100: '100 Mo (serveur boost niveau 3)',
 };
 
+const SAVE_STATUS_LABELS: Record<AutoSaveStatus, string> = {
+  idle: 'Les réglages s’enregistrent tout seuls.',
+  saved: 'Réglages enregistrés.',
+  invalid: 'Non enregistré : vérifie l’URL du webhook et les valeurs saisies.',
+};
+
 export function SettingsForm({ settings, onSave }: SettingsFormProps) {
   const [draft, setDraft] = useState<Settings>(settings);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
@@ -30,14 +37,7 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
     setFeedback(null);
   };
 
-  const save = async (): Promise<void> => {
-    const result = await onSave(draft);
-    setFeedback(
-      result.success
-        ? { kind: 'good', text: 'Réglages enregistrés.' }
-        : { kind: 'error', text: 'Réglages invalides : vérifie l’URL du webhook et les valeurs saisies.' },
-    );
-  };
+  const saveStatus = useAutoSave(draft, async (value) => (await onSave(value)).success);
 
   const testWebhook = async (): Promise<void> => {
     const result = await window.api.testWebhook(draft.discordWebhookUrl);
@@ -154,9 +154,9 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
       </Section>
 
       <div className="actions">
-        <button className="button" onClick={() => void save()}>
-          Enregistrer
-        </button>
+        <span className={`message message-${saveStatus === 'invalid' ? 'error' : 'good'}`}>
+          {SAVE_STATUS_LABELS[saveStatus]}
+        </span>
         {feedback !== null && <span className={`message message-${feedback.kind}`}>{feedback.text}</span>}
       </div>
     </div>
