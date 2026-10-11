@@ -11,7 +11,8 @@ import { logger } from '../../core/logger';
 import type { GoalRecord, Score, Settings, WatcherStatus } from '../../shared/types';
 import { encodeClip } from '../clip/data/clipEncoder';
 import { readScoreboard } from '../detection/data/scoreboardReader';
-import { GoalDetector, type DigitRecognizer } from '../detection/domain/goalDetector';
+import type { TeamNameReader } from '../detection/data/teamNameReader';
+import { GoalDetector, type DigitRecognizer, type Goal } from '../detection/domain/goalDetector';
 import { publishClip } from '../publishing/data/discordPublisher';
 import { formatGoalMessage } from '../publishing/domain/goalMessage';
 import { describeObsError, ObsClient } from '../recording/data/obsClient';
@@ -23,6 +24,7 @@ export interface GoalWatcherOptions {
   settings: Settings;
   ffmpegPath: string;
   digits: DigitRecognizer;
+  teamNames: TeamNameReader;
   onStatus: (status: WatcherStatus) => void;
   onGoal: (record: GoalRecord) => void;
 }
@@ -71,12 +73,13 @@ export class GoalWatcher {
   private async tick(): Promise<number> {
     try {
       await this.ensureObsConnected();
-      const reading = await readScoreboard(await this.obs.captureProgramFrame(), this.options.settings.scoreRegions);
+      const frame = await this.obs.captureProgramFrame();
+      const reading = await readScoreboard(frame, this.options.settings.scoreRegions);
       const goal = this.detector.update(reading);
       this.report({ obsConnected: true, scoreboardVisible: reading !== null, score: this.detector.score, error: null });
       if (goal !== null) {
-        logger.info({ score: goal }, 'Goal detected');
-        void this.publishGoal(goal);
+        logger.info({ score: goal.score, side: goal.scorer }, 'Goal detected');
+        void this.publishGoal(goal, frame);
       }
       return POLL_INTERVAL_MS;
     } catch (error: unknown) {
@@ -113,10 +116,11 @@ export class GoalWatcher {
     }
   }
 
-  private async publishGoal(score: Score): Promise<void> {
+  /** `frame` is the one the goal was detected on, so the scoreboard is visible in it. */
+  private async publishGoal({ score, scorer }: Goal, frame: Buffer): Promise<void> {
     const record: GoalRecord = { time: Date.now(), score, published: false, error: null };
     try {
-      await this.recordAndPublish(score);
+      await this.recordAndPublish(score, await this.readTeamName(frame, scorer));
       logger.info({ score }, 'Goal clip published');
       this.options.onGoal({ ...record, published: true });
     } catch (error: unknown) {
@@ -125,7 +129,17 @@ export class GoalWatcher {
     }
   }
 
-  private async recordAndPublish(score: Score): Promise<void> {
+  /** A name that cannot be read must not prevent the clip from being published. */
+  private async readTeamName(frame: Buffer, side: keyof Score): Promise<string | null> {
+    try {
+      return await this.options.teamNames.read(frame, this.options.settings.scoreRegions[side]);
+    } catch (error: unknown) {
+      logger.warn({ err: error }, 'Team name could not be read');
+      return null;
+    }
+  }
+
+  private async recordAndPublish(score: Score, scorer: string | null): Promise<void> {
     const { settings, ffmpegPath } = this.options;
     if (settings.discordWebhookUrl === '') {
       throw new Error('Le webhook Discord n’est pas configuré.');
@@ -137,7 +151,8 @@ export class GoalWatcher {
       height: settings.clipHeight,
       targetBytes: settings.maxClipSizeMb * BYTES_PER_MEGABYTE * CLIP_SIZE_SAFETY_RATIO,
     });
-    await publishClip(settings.discordWebhookUrl, clipPath, formatGoalMessage(settings.messageTemplate, score));
+    const message = formatGoalMessage(settings.messageTemplate, score, scorer);
+    await publishClip(settings.discordWebhookUrl, clipPath, message);
     if (settings.deleteLocalFiles) {
       await Promise.all([rm(replayPath), rm(clipPath)]);
     }

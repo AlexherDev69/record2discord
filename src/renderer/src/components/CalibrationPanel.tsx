@@ -31,7 +31,8 @@ function describePreview(preview: RegionPreview): string {
   if (!preview.looksLikeScoreboard) {
     return 'Pas un chiffre du bandeau';
   }
-  return preview.digit === null ? 'Chiffre non reconnu' : `Lu : ${preview.digit}`;
+  const digit = preview.digit === null ? 'Chiffre non reconnu' : `Lu : ${preview.digit}`;
+  return `${digit} · Équipe : ${preview.teamName ?? 'non lue'}`;
 }
 
 function describeLive(livePreview: LivePreview | null, error: string | null): string {

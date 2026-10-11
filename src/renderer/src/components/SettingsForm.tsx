@@ -58,7 +58,7 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
         />
         <TextField
           label="Message"
-          hint="{home} et {away} sont remplacés par le score."
+          hint="{home} et {away} sont remplacés par le score, {scorer} par le nom de l’équipe qui a marqué."
           value={draft.messageTemplate}
           onChange={(value) => update('messageTemplate', value)}
         />

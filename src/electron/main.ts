@@ -4,6 +4,7 @@ import { app, BrowserWindow, Menu, nativeImage, safeStorage, Tray } from 'electr
 import { addLogFile, logger } from '../core/logger';
 import { SettingsStore, type SettingsCodec } from '../core/settingsStore';
 import { DigitLibrary } from '../features/detection/data/digitLibrary';
+import { TeamNameReader } from '../features/detection/data/teamNameReader';
 import { IPC_CHANNELS, type Settings } from '../shared/types';
 import { AppController } from './appController';
 import { registerIpcHandlers } from './ipc';
@@ -98,6 +99,7 @@ async function bootstrap(): Promise<void> {
   const controller = new AppController({
     store: new SettingsStore(userDataPath('settings.bin'), encryptedCodec),
     digits: DigitLibrary.load(ensureDigitLibrary()),
+    teamNames: new TeamNameReader(bundledPath('tessdata', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int')),
     ffmpegPath: bundledPath('ffmpeg.exe', 'node_modules/ffmpeg-static/ffmpeg.exe'),
     onStateChanged: (state) => window?.webContents.send(IPC_CHANNELS.stateChanged, state),
     onSettingsApplied: applyStartWithWindows,

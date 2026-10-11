@@ -1,7 +1,7 @@
 {
   "name": "record2discord",
   "productName": "Record2Discord",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Clips goals automatically and posts them to a Discord channel",
   "author": "record2discord",
   "private": true,
@@ -18,9 +18,11 @@
     "obs-websocket-js": "^5.0.8",
     "pino": "^10.4.0",
     "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -66,6 +68,10 @@
       {
         "from": "assets/digits.json",
         "to": "digits.json"
+      },
+      {
+        "from": "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
+        "to": "tessdata/eng.traineddata.gz"
       },
       {
         "from": "build/icon.png",

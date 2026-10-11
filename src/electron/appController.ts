@@ -3,6 +3,7 @@ import { MAX_GOAL_HISTORY } from '../core/config';
 import { parseSettings } from '../core/settings';
 import type { SettingsStore } from '../core/settingsStore';
 import { cropScoreRegion, readGlyph } from '../features/detection/data/scoreboardReader';
+import type { TeamNameReader } from '../features/detection/data/teamNameReader';
 import type { DigitRecognizer } from '../features/detection/domain/goalDetector';
 import { sendMessage } from '../features/publishing/data/discordPublisher';
 import { GoalWatcher } from '../features/watcher/goalWatcher';
@@ -24,6 +25,7 @@ const INITIAL_STATUS: WatcherStatus = { obsConnected: false, scoreboardVisible: 
 export interface AppControllerOptions {
   store: SettingsStore;
   digits: DigitRecognizer;
+  teamNames: TeamNameReader;
   ffmpegPath: string;
   onStateChanged: (state: AppState) => void;
   onSettingsApplied: (settings: Settings) => void;
@@ -108,6 +110,8 @@ export class AppController {
       imageDataUrl: `data:image/png;base64,${(await crop.png().toBuffer()).toString('base64')}`,
       looksLikeScoreboard: glyph !== null,
       digit: glyph === null ? null : this.options.digits.recognize(glyph),
+      // Without a scoreboard there is no name to read, and the engine would make one up.
+      teamName: glyph === null ? null : await this.options.teamNames.read(frame, region).catch(() => null),
     };
   }
 
@@ -116,6 +120,7 @@ export class AppController {
       settings: this.settings,
       ffmpegPath: this.options.ffmpegPath,
       digits: this.options.digits,
+      teamNames: this.options.teamNames,
       onStatus: (status) => this.setState({ ...this.state, status }),
       onGoal: (record) => this.setState({ ...this.state, goals: this.withGoal(record) }),
     });

@@ -3,7 +3,7 @@ import type { CalibrationPreview, RegionPreview } from '../../../shared/types';
 import { isScoreboardVisible, nextLivePreview } from './livePreview';
 
 function side(looksLikeScoreboard: boolean, digit: number | null = null): RegionPreview {
-  return { imageDataUrl: '', looksLikeScoreboard, digit };
+  return { imageDataUrl: '', looksLikeScoreboard, digit, teamName: null };
 }
 
 const IN_MATCH: CalibrationPreview = { home: side(true, 2), away: side(true, 1) };

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Score } from '../../../shared/types';
 import { isSameGlyph, type Glyph } from './glyph';
-import { GoalDetector, type DigitRecognizer, type ScoreboardReading } from './goalDetector';
+import { GoalDetector, type DigitRecognizer, type Goal, type ScoreboardReading } from './goalDetector';
 
 const STABLE_READS = 3;
 const GLYPH_SIZE = 100;
@@ -41,7 +40,7 @@ function reading(home: number, away: number): ScoreboardReading {
   return { home: digit(home), away: digit(away) };
 }
 
-function feed(detector: GoalDetector, value: ScoreboardReading | null, times: number): (Score | null)[] {
+function feed(detector: GoalDetector, value: ScoreboardReading | null, times: number): (Goal | null)[] {
   return Array.from({ length: times }, () => detector.update(value));
 }
 
@@ -59,12 +58,24 @@ describe('GoalDetector', () => {
 
   it('should emit a goal with the new score when one side changes and is stable', () => {
     const detector = detectorAt(0, 0);
-    expect(feed(detector, reading(1, 0), STABLE_READS)).toEqual([null, null, { home: 1, away: 0 }]);
+    expect(feed(detector, reading(1, 0), STABLE_READS)).toEqual([
+      null,
+      null,
+      { score: { home: 1, away: 0 }, scorer: 'home' },
+    ]);
+  });
+
+  it('should name the away side as scorer when the away score changes', () => {
+    const detector = detectorAt(1, 0);
+    expect(feed(detector, reading(1, 1), STABLE_READS).at(-1)).toEqual({
+      score: { home: 1, away: 1 },
+      scorer: 'away',
+    });
   });
 
   it('should give the real score when started in the middle of a match', () => {
     const detector = detectorAt(3, 0);
-    expect(feed(detector, reading(4, 0), STABLE_READS).at(-1)).toEqual({ home: 4, away: 0 });
+    expect(feed(detector, reading(4, 0), STABLE_READS).at(-1)?.score).toEqual({ home: 4, away: 0 });
   });
 
   it('should expose the last confirmed score', () => {
@@ -90,7 +101,7 @@ describe('GoalDetector', () => {
     const detector = detectorAt(0, 0);
     feed(detector, reading(1, 0), STABLE_READS - 1);
     detector.update(null);
-    expect(feed(detector, reading(1, 0), STABLE_READS)).toEqual([null, null, { home: 1, away: 0 }]);
+    expect(feed(detector, reading(1, 0), STABLE_READS).at(-1)?.score).toEqual({ home: 1, away: 0 });
   });
 
   it('should not emit a goal when a side goes back to zero', () => {
@@ -106,25 +117,25 @@ describe('GoalDetector', () => {
   it('should rebaseline without a goal when both sides change', () => {
     const detector = detectorAt(3, 2);
     expect(feed(detector, reading(0, 0), STABLE_READS)).toEqual([null, null, null]);
-    expect(feed(detector, reading(0, 1), STABLE_READS).at(-1)).toEqual({ home: 0, away: 1 });
+    expect(feed(detector, reading(0, 1), STABLE_READS).at(-1)?.score).toEqual({ home: 0, away: 1 });
   });
 
   it('should count and learn the digit when it is not known yet', () => {
     const digits = new FakeDigits([0, 1]);
     const detector = detectorAt(1, 0, digits);
-    expect(feed(detector, reading(2, 0), STABLE_READS).at(-1)).toEqual({ home: 2, away: 0 });
+    expect(feed(detector, reading(2, 0), STABLE_READS).at(-1)?.score).toEqual({ home: 2, away: 0 });
     expect(digits.learned).toEqual([2]);
   });
 
   it('should trust counting and relearn the digit when it is misread', () => {
     const digits = new FakeDigits([0, 5], { 6: 5 });
     const detector = detectorAt(0, 5, digits);
-    expect(feed(detector, reading(0, 6), STABLE_READS).at(-1)).toEqual({ home: 0, away: 6 });
+    expect(feed(detector, reading(0, 6), STABLE_READS).at(-1)?.score).toEqual({ home: 0, away: 6 });
     expect(digits.learned).toEqual([6]);
   });
 
   it('should emit a goal with an unknown number when no digit can be read', () => {
     const detector = detectorAt(7, 0, new FakeDigits([0]));
-    expect(feed(detector, reading(8, 0), STABLE_READS).at(-1)).toEqual({ home: null, away: 0 });
+    expect(feed(detector, reading(8, 0), STABLE_READS).at(-1)?.score).toEqual({ home: null, away: 0 });
   });
 });

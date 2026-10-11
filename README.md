@@ -70,7 +70,7 @@ Fermer la fenêtre laisse l'application tourner dans la zone de notification. Po
 
 | Réglage | Rôle |
 |---|---|
-| Message | Texte posté avec le clip. `{home}` et `{away}` sont remplacés par le score. |
+| Message | Texte posté avec le clip. `{home}` et `{away}` sont remplacés par le score, `{scorer}` par le nom de l'équipe qui a marqué (l'abréviation lue sur le bandeau, par exemple `ACH`). |
 | Durée du clip | Longueur du clip envoyé. Plus il est court, meilleure est l'image. |
 | Secondes gardées après le but | Temps de célébration conservé à la fin du clip. |
 | Résolution | 720p ou 1080p. |
@@ -89,7 +89,7 @@ Pour vérifier la calibration sans rien toucher, ouvre l'onglet **Calibration** 
 
 - Le score affiché dans le message est fiable de 0 à 9. Au-delà, il est compté à partir du dernier score lu.
 - Si l'application est lancée pendant la célébration d'un but, ce but n'est pas détecté.
-- Les noms d'équipes ne sont pas lus à l'écran.
+- Le nom de l'équipe qui a marqué est lu sur le bandeau par reconnaissance de texte : une erreur de lecture reste possible, et `?` s'affiche quand le nom est illisible.
 
 ## Développement
 

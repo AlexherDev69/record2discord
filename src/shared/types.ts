@@ -57,6 +57,7 @@ export interface RegionPreview {
   imageDataUrl: string;
   looksLikeScoreboard: boolean;
   digit: number | null;
+  teamName: string | null;
 }
 
 export interface CalibrationPreview {
