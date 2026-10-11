@@ -112,9 +112,9 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
       <section className="card">
         <h2>Zones du score</h2>
         <p className="muted">
-          Lance la capture puis reviens dans le jeu en plein match : l’image s’affiche avec les deux zones lues. Les
-          zones ne sont à retracer que si le bandeau a changé de place : entoure alors chaque chiffre au plus près,
-          sans toucher le bord du bandeau.
+          Par défaut, il n’y a rien à faire ici : les zones du bandeau d’origine du jeu sont déjà enregistrées. La
+          capture sert seulement si le bandeau a changé de place : lance-la, reviens dans le jeu en plein match, puis
+          entoure chaque chiffre au plus près sur l’image, sans toucher le bord du bandeau.
         </p>
         <div className="actions">
           <button className="button" disabled={countdown !== null} onClick={() => void capture()}>
