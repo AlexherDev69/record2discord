@@ -76,7 +76,7 @@ Fermer la fenêtre laisse l'application tourner dans la zone de notification. Po
 | Résolution | 720p ou 1080p. |
 | Taille maximale | 10 Mo par défaut, 50 ou 100 Mo si le serveur Discord est boosté. |
 | Supprimer les fichiers locaux | Efface le replay et le clip une fois l'envoi réussi. |
-| Raccourci clavier (extrait manuel) | Touche qui envoie les dernières secondes sur Discord à la demande, même en jeu, avec le message « Extrait enregistré manuellement ». La durée est celle du clip. |
+| Raccourci clavier (extrait manuel) | Touche qui envoie les dernières secondes sur Discord à la demande, même en jeu, avec le message « Extrait enregistré manuellement ». La durée est celle du clip. Touches acceptées : F1 à F24 seules, ou Ctrl, Alt, Maj avec une autre touche. |
 | Lancer OBS automatiquement | Ouvre OBS réduit s'il n'est pas déjà lancé. |
 | Démarrer avec Windows | Lance l'application réduite à l'ouverture de session. |
 
@@ -91,7 +91,8 @@ Le même onglet permet de limiter l'envoi aux buts de certaines équipes : saisi
 ## Limites connues
 
 - Le score affiché dans le message est fiable de 0 à 9. Au-delà, il est compté à partir du dernier score lu.
-- Si l'application est lancée pendant la célébration d'un but, ce but n'est pas détecté.
+- Si l'application est lancée pendant la célébration d'un but, ce but n'est pas détecté. Il en va de même pour un but marqué pendant qu'un réglage est en train d'être enregistré, car la surveillance redémarre.
+- Le webhook doit être une adresse Discord (`https://discord.com/api/webhooks/...`).
 - Le nom de l'équipe qui a marqué est lu sur le bandeau par reconnaissance de texte : une erreur de lecture reste possible, et `?` s'affiche quand le nom est illisible.
 
 ## Développement
@@ -106,3 +107,7 @@ pnpm dist       # construit l'installeur dans dist/
 Le code est organisé en `src/core` (réglages, configuration), `src/features` (détection, enregistrement, clip, publication), `src/electron` (processus principal) et `src/renderer` (interface React).
 
 Les journaux et les réglages sont stockés dans `%APPDATA%\Record2Discord`.
+
+## Composants tiers
+
+L'installeur embarque [FFmpeg](https://ffmpeg.org), distribué sous licence GPL (binaire fourni par le paquet `ffmpeg-static`), et le moteur de reconnaissance de texte [Tesseract](https://github.com/tesseract-ocr/tesseract) (licence Apache 2.0) avec son modèle anglais.

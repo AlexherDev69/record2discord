@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { CLIP_AUDIO_KBPS, CLIP_FPS, CLIP_VIDEO_ENCODER } from '../../../core/config';
+import { CLIP_AUDIO_KBPS, CLIP_ENCODE_TIMEOUT_MS, CLIP_FPS, CLIP_VIDEO_ENCODER } from '../../../core/config';
 import { computeVideoBitrateKbps } from '../domain/bitrate';
 
 const execFileAsync = promisify(execFile);
@@ -16,7 +16,7 @@ export interface ClipOptions {
 export async function encodeClip(ffmpegPath: string, replayPath: string, options: ClipOptions): Promise<string> {
   const videoKbps = computeVideoBitrateKbps(options.targetBytes, options.clipSeconds, CLIP_AUDIO_KBPS);
   const clipPath = `${replayPath}${CLIP_SUFFIX}`;
-  await execFileAsync(ffmpegPath, [
+  const ffmpegArguments = [
     '-y',
     '-v', 'error',
     '-sseof', `-${options.clipSeconds}`,
@@ -30,6 +30,7 @@ export async function encodeClip(ffmpegPath: string, replayPath: string, options
     '-b:a', `${CLIP_AUDIO_KBPS}k`,
     '-movflags', '+faststart',
     clipPath,
-  ]);
+  ];
+  await execFileAsync(ffmpegPath, ffmpegArguments, { timeout: CLIP_ENCODE_TIMEOUT_MS });
   return clipPath;
 }

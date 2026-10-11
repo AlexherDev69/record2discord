@@ -75,7 +75,8 @@ export type IpcResult<T> = { success: true; data: T } | { success: false; error:
 /** API exposed to the renderer by the preload script. */
 export interface AppApi {
   getSettings(): Promise<Settings>;
-  saveSettings(settings: Settings): Promise<IpcResult<Settings>>;
+  /** Saves the given fields only, so that screens editing different fields cannot overwrite each other. */
+  saveSettings(patch: Partial<Settings>): Promise<IpcResult<Settings>>;
   getState(): Promise<AppState>;
   onState(listener: (state: AppState) => void): () => void;
   testWebhook(webhookUrl: string): Promise<IpcResult<null>>;

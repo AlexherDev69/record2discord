@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { createWorker, OEM, PSM, type Worker } from 'tesseract.js';
 import type { Region } from '../../../shared/types';
+import { toPixelBox } from '../domain/pixelBox';
 import { parseTeamName, teamNameRegion } from '../domain/teamName';
 
 const LANGUAGE = 'eng';
@@ -13,16 +14,11 @@ const BORDER_COLOR = '#ffffff';
 async function cropTeamName(frame: Buffer, region: Region): Promise<Buffer> {
   const image = sharp(frame);
   const { width, height } = await image.metadata();
-  const cropWidth = Math.max(1, Math.round(region.width * width));
+  const box = toPixelBox(region, width, height);
   return image
-    .extract({
-      left: Math.round(region.left * width),
-      top: Math.round(region.top * height),
-      width: cropWidth,
-      height: Math.max(1, Math.round(region.height * height)),
-    })
+    .extract(box)
     .grayscale()
-    .resize({ width: cropWidth * UPSCALE_FACTOR, kernel: 'cubic' })
+    .resize({ width: box.width * UPSCALE_FACTOR, kernel: 'cubic' })
     .normalise()
     .extend({ top: BORDER_PX, bottom: BORDER_PX, left: BORDER_PX, right: BORDER_PX, background: BORDER_COLOR })
     .png()

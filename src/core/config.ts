@@ -3,6 +3,13 @@ export const OBS_RETRY_INTERVAL_MS = 3000;
 export const STABLE_READS_REQUIRED = 3;
 export const SCREENSHOT_JPEG_QUALITY = 80;
 export const MAX_GOAL_HISTORY = 20;
+// OBS answers in milliseconds: past this, the connection is considered lost.
+export const OBS_REQUEST_TIMEOUT_MS = 5000;
+export const OBS_REPLAY_SAVE_TIMEOUT_MS = 20_000;
+export const CLIP_ENCODE_TIMEOUT_MS = 120_000;
+// Generous, since a 100 MB clip can take minutes on a slow upload link.
+export const DISCORD_UPLOAD_TIMEOUT_MS = 300_000;
+export const DISCORD_MAX_RETRY_DELAY_MS = 30_000;
 
 // Distance under which a glyph is recognized as its closest reference digit.
 export const DIGIT_MAX_DISTANCE = 0.15;

@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import type { Region, ScoreRegions } from '../../../shared/types';
-import { regionFromPoints, type Point } from '../lib/region';
+import { isDrawnRegion, regionFromPoints, type Point } from '../lib/region';
 
 export type Side = keyof ScoreRegions;
 
@@ -17,6 +17,7 @@ interface RegionSelectorProps {
 const ZOOM = 2;
 const SIDES: Side[] = ['home', 'away'];
 const PERCENT = 100;
+const LEFT_MOUSE_BUTTON = 0;
 
 function toPercent(fraction: number): string {
   return `${fraction * PERCENT}%`;
@@ -39,8 +40,12 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange, on
 
   const drag = (event: MouseEvent): void => {
     const point = pointFromEvent(event);
-    if (dragStart.current !== null && point !== null) {
-      onChange(regionFromPoints(dragStart.current, point));
+    if (dragStart.current === null || point === null) {
+      return;
+    }
+    const region = regionFromPoints(dragStart.current, point);
+    if (isDrawnRegion(region)) {
+      onChange(region);
       hasDrawn.current = true;
     }
   };
@@ -59,7 +64,9 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange, on
         ref={frameRef}
         className="frame"
         onMouseDown={(event) => {
-          dragStart.current = pointFromEvent(event);
+          if (event.button === LEFT_MOUSE_BUTTON) {
+            dragStart.current = pointFromEvent(event);
+          }
         }}
         onMouseMove={drag}
         onMouseUp={endDrag}

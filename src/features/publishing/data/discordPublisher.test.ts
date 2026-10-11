@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { publishClip, sendMessage } from './discordPublisher';
 
-const WEBHOOK_URL = 'https://discord.test/api/webhooks/1/token';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1/token';
 const REFUSED_STATUS = 413;
+const RATE_LIMITED_STATUS = 429;
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -37,6 +38,25 @@ describe('sendMessage', () => {
     await sendMessage(WEBHOOK_URL, 'Bonjour');
     expect(fetchMock).toHaveBeenCalledWith(WEBHOOK_URL, expect.objectContaining({ method: 'POST' }));
     expect(sentForm().get('payload_json')).toBe(JSON.stringify({ content: 'Bonjour' }));
+  });
+
+  it('should retry once when Discord asks to slow down', async () => {
+    fetchMock.mockResolvedValueOnce(Response.json({ retry_after: 0.001 }, { status: RATE_LIMITED_STATUS }));
+    await sendMessage(WEBHOOK_URL, 'Bonjour');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('should give up when Discord is still rate limiting after the retry', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(Response.json({ retry_after: 0.001 }, { status: RATE_LIMITED_STATUS })),
+    );
+    await expect(sendMessage(WEBHOOK_URL, 'Bonjour')).rejects.toThrow(String(RATE_LIMITED_STATUS));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('should give the request a time limit', async () => {
+    await sendMessage(WEBHOOK_URL, 'Bonjour');
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('should throw with the status code when Discord refuses the message', async () => {

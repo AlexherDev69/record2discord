@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { logger } from '../core/logger';
-import { IPC_CHANNELS, type IpcResult, type ScoreRegions } from '../shared/types';
+import { IPC_CHANNELS, type IpcResult } from '../shared/types';
 import type { AppController } from './appController';
 
 /** Runs a handler and turns a thrown error into a result the window can display. */
@@ -19,19 +19,19 @@ export function registerIpcHandlers(controller: AppController): void {
   ipcMain.handle(IPC_CHANNELS.saveSettings, (_event, settings: unknown) =>
     toResult(() => controller.saveSettings(settings)),
   );
-  ipcMain.handle(IPC_CHANNELS.testWebhook, (_event, webhookUrl: string) =>
+  ipcMain.handle(IPC_CHANNELS.testWebhook, (_event, webhookUrl: unknown) =>
     toResult(async () => {
       await controller.testWebhook(webhookUrl);
       return null;
     }),
   );
-  ipcMain.handle(IPC_CHANNELS.captureFrame, (_event, delaySeconds: number) =>
+  ipcMain.handle(IPC_CHANNELS.captureFrame, (_event, delaySeconds: unknown) =>
     toResult(() => controller.captureFrame(delaySeconds)),
   );
-  ipcMain.handle(IPC_CHANNELS.previewRegions, (_event, regions: ScoreRegions) =>
+  ipcMain.handle(IPC_CHANNELS.previewRegions, (_event, regions: unknown) =>
     toResult(() => controller.previewRegions(regions)),
   );
-  ipcMain.handle(IPC_CHANNELS.previewLiveRegions, (_event, regions: ScoreRegions) =>
+  ipcMain.handle(IPC_CHANNELS.previewLiveRegions, (_event, regions: unknown) =>
     toResult(() => controller.previewLiveRegions(regions)),
   );
 }

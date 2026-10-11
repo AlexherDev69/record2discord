@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { DIGIT_MAX_DISTANCE } from '../../../core/config';
 import { logger } from '../../../core/logger';
@@ -7,6 +7,8 @@ import type { DigitRecognizer } from '../domain/goalDetector';
 
 /** File format: digit -> glyph pixels as a string of 0 and 1. */
 const librarySchema = z.record(z.string().regex(/^\d$/), z.string().regex(/^[01]+$/));
+
+const TEMPORARY_SUFFIX = '.tmp';
 
 function encodeGlyph(glyph: Glyph): string {
   return glyph.join('');
@@ -40,10 +42,18 @@ export class DigitLibrary implements DigitRecognizer {
     return closest !== null && closest.distance <= DIGIT_MAX_DISTANCE ? closest.digit : null;
   }
 
+  /** Remembers the digit for this session even when it cannot be written to disk. */
   learn(digit: number, glyph: Glyph): void {
     this.glyphs.set(digit, glyph);
     const stored = Object.fromEntries([...this.glyphs].map(([key, value]) => [key, encodeGlyph(value)]));
-    writeFileSync(this.filePath, JSON.stringify(stored, null, 2));
-    logger.info({ digit }, 'Learned a new scoreboard digit');
+    try {
+      // Written aside then renamed, so a crash mid-write cannot leave a truncated library.
+      const temporaryPath = `${this.filePath}${TEMPORARY_SUFFIX}`;
+      writeFileSync(temporaryPath, JSON.stringify(stored, null, 2));
+      renameSync(temporaryPath, this.filePath);
+      logger.info({ digit }, 'Learned a new scoreboard digit');
+    } catch (error: unknown) {
+      logger.warn({ err: error, digit }, 'Learned digit could not be saved');
+    }
   }
 }

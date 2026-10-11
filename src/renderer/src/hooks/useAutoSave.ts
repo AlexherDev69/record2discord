@@ -13,7 +13,10 @@ export function useAutoSave<Value>(value: Value, save: (value: Value) => Promise
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
   const lastSaved = useRef(value);
   const latest = useRef({ value, save });
-  latest.current = { value, save };
+
+  useEffect(() => {
+    latest.current = { value, save };
+  });
 
   useEffect(() => {
     if (value === lastSaved.current) {
@@ -22,7 +25,9 @@ export function useAutoSave<Value>(value: Value, save: (value: Value) => Promise
     setStatus('idle');
     const timer = setTimeout(() => {
       lastSaved.current = value;
-      void latest.current.save(value).then((accepted) => setStatus(accepted ? 'saved' : 'invalid'));
+      // A save that could not even be sent is reported like a rejected value.
+      const saving = latest.current.save(value).catch(() => false);
+      void saving.then((accepted) => setStatus(accepted ? 'saved' : 'invalid'));
     }, AUTO_SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [value]);
@@ -30,7 +35,7 @@ export function useAutoSave<Value>(value: Value, save: (value: Value) => Promise
   useEffect(
     () => () => {
       if (latest.current.value !== lastSaved.current) {
-        void latest.current.save(latest.current.value);
+        void latest.current.save(latest.current.value).catch(() => false);
       }
     },
     [],

@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from '../../../core/config';
-import type { IpcResult, Settings } from '../../../shared/types';
+import type { Settings } from '../../../shared/types';
 import { useAutoSave, type AutoSaveStatus } from '../hooks/useAutoSave';
+import type { SaveSettings } from '../hooks/useSettings';
+import { changedFieldPatches } from '../lib/settingsPatch';
 import { ClipQualityHint } from './ClipQualityHint';
 import { CheckboxField, NumberField, Section, SelectField, TextField } from './fields';
 import { ShortcutField } from './ShortcutField';
 
 interface SettingsFormProps {
   settings: Settings;
-  onSave: (settings: Settings) => Promise<IpcResult<Settings>>;
+  onSave: SaveSettings;
 }
 
 interface Feedback {
@@ -25,7 +27,7 @@ const MAX_SIZE_LABELS: Record<number, string> = {
 const SAVE_STATUS_LABELS: Record<AutoSaveStatus, string> = {
   idle: 'Les réglages s’enregistrent tout seuls.',
   saved: 'Réglages enregistrés.',
-  invalid: 'Non enregistré : vérifie l’URL du webhook et les valeurs saisies.',
+  invalid: 'Une valeur n’est pas valide et n’a pas été enregistrée : vérifie l’URL du webhook, l’adresse d’OBS et les nombres.',
 };
 
 export function SettingsForm({ settings, onSave }: SettingsFormProps) {
@@ -37,7 +39,19 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
     setFeedback(null);
   };
 
-  const saveStatus = useAutoSave(draft, async (value) => (await onSave(value)).success);
+  const saved = useRef(settings);
+
+  const saveStatus = useAutoSave(draft, async (edited) => {
+    let accepted = true;
+    for (const patch of changedFieldPatches(saved.current, edited)) {
+      if ((await onSave(patch)).success) {
+        saved.current = { ...saved.current, ...patch };
+      } else {
+        accepted = false;
+      }
+    }
+    return accepted;
+  });
 
   const testWebhook = async (): Promise<void> => {
     const result = await window.api.testWebhook(draft.discordWebhookUrl);
@@ -115,7 +129,7 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
       <Section title="Extrait manuel">
         <ShortcutField
           label="Raccourci clavier"
-          hint="Fonctionne aussi en jeu : envoie les dernières secondes sur Discord (durée du clip ci-dessus). La touche n’est alors plus transmise au jeu. Retour arrière pour le retirer."
+          hint="Fonctionne aussi en jeu : envoie les dernières secondes sur Discord (durée du clip ci-dessus). La combinaison n’est alors plus transmise au jeu. F1 à F24 seules, ou Ctrl, Alt, Maj avec une autre touche. Retour arrière pour le retirer."
           value={draft.manualClipShortcut}
           onChange={(value) => update('manualClipShortcut', value)}
         />

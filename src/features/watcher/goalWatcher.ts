@@ -18,9 +18,12 @@ import { publishClip } from '../publishing/data/discordPublisher';
 import { formatGoalMessage } from '../publishing/domain/goalMessage';
 import { describeObsError, ObsClient } from '../recording/data/obsClient';
 import { launchObsIfNeeded } from '../recording/data/obsLauncher';
+import { isReplayFile } from '../recording/domain/replayFile';
 
 const MS_PER_SECOND = 1000;
 const MANUAL_CLIP_MESSAGE = 'Extrait enregistré manuellement';
+const READ_FAILED_MESSAGE = 'Lecture du bandeau impossible : refais la calibration';
+const STOPPED_MESSAGE = 'La surveillance redémarre : réessaie dans un instant.';
 
 export interface GoalWatcherOptions {
   settings: Settings;
@@ -36,8 +39,11 @@ export class GoalWatcher {
   private readonly obs = new ObsClient();
   private readonly detector: GoalDetector;
   private readonly stopSignal = new AbortController();
+  private readonly publications = new Set<Promise<void>>();
   private obsConnected = false;
+  private obsConnecting: Promise<void> | null = null;
   private obsLaunchAttempted = false;
+  private manualClipInProgress = false;
   private loop: Promise<void> = Promise.resolve();
   private lastStatus = '';
 
@@ -49,13 +55,18 @@ export class GoalWatcher {
     this.loop = this.run();
   }
 
+  /** Stops watching, lets the clips being published finish, then leaves OBS. */
   async stop(): Promise<void> {
     this.stopSignal.abort();
     await this.loop;
+    await Promise.allSettled([...this.publications]);
     await this.obs.disconnect().catch(() => undefined);
   }
 
   async captureFrame(): Promise<Buffer> {
+    if (this.stopSignal.signal.aborted) {
+      throw new Error(STOPPED_MESSAGE);
+    }
     try {
       await this.ensureObsConnected();
       return await this.obs.captureProgramFrame();
@@ -73,33 +84,55 @@ export class GoalWatcher {
 
   /** Reads the scoreboard once and returns how long to wait before the next read. */
   private async tick(): Promise<number> {
+    let frame: Buffer;
     try {
       await this.ensureObsConnected();
-      const frame = await this.obs.captureProgramFrame();
+      frame = await this.obs.captureProgramFrame();
+    } catch (error: unknown) {
+      this.obsConnected = false;
+      const status = { obsConnected: false, scoreboardVisible: false, score: this.detector.score };
+      this.report({ ...status, error: describeObsError(error) });
+      return OBS_RETRY_INTERVAL_MS;
+    }
+    await this.readFrame(frame);
+    return POLL_INTERVAL_MS;
+  }
+
+  /** A frame that cannot be read is reported as such, and not mistaken for an OBS failure. */
+  private async readFrame(frame: Buffer): Promise<void> {
+    try {
       const reading = await readScoreboard(frame, this.options.settings.scoreRegions);
       const goal = this.detector.update(reading);
       this.report({ obsConnected: true, scoreboardVisible: reading !== null, score: this.detector.score, error: null });
       if (goal !== null) {
         logger.info({ score: goal.score, side: goal.scorer }, 'Goal detected');
-        void this.publishGoal(goal, frame);
+        this.track(this.publishGoal(goal, frame));
       }
-      return POLL_INTERVAL_MS;
     } catch (error: unknown) {
-      this.obsConnected = false;
-      this.report({
-        obsConnected: false,
-        scoreboardVisible: false,
-        score: this.detector.score,
-        error: describeObsError(error),
-      });
-      return OBS_RETRY_INTERVAL_MS;
+      const message = error instanceof Error ? error.message : String(error);
+      const status = { obsConnected: true, scoreboardVisible: false, score: this.detector.score };
+      this.report({ ...status, error: `${READ_FAILED_MESSAGE} (${message})` });
     }
   }
 
-  private async ensureObsConnected(): Promise<void> {
+  /** Remembers a publication until it settles, so stopping can wait for it. */
+  private track(publication: Promise<void>): void {
+    this.publications.add(publication);
+    void publication.finally(() => this.publications.delete(publication));
+  }
+
+  /** The poll loop and the calibration preview can both ask for OBS: they share one connection attempt. */
+  private ensureObsConnected(): Promise<void> {
     if (this.obsConnected) {
-      return;
+      return Promise.resolve();
     }
+    this.obsConnecting ??= this.connectToObs().finally(() => {
+      this.obsConnecting = null;
+    });
+    return this.obsConnecting;
+  }
+
+  private async connectToObs(): Promise<void> {
     const { settings } = this.options;
     if (settings.launchObs && !this.obsLaunchAttempted) {
       this.obsLaunchAttempted = true;
@@ -133,7 +166,16 @@ export class GoalWatcher {
 
   /** Publishes the last seconds of the replay buffer, on the user's request. */
   async publishManualClip(): Promise<void> {
-    await this.publishClipFor({ time: Date.now(), score: null }, MANUAL_CLIP_MESSAGE, 0);
+    // A key held down or pressed twice must not post the same seconds several times.
+    if (this.manualClipInProgress) {
+      return;
+    }
+    this.manualClipInProgress = true;
+    const publication = this.publishClipFor({ time: Date.now(), score: null }, MANUAL_CLIP_MESSAGE, 0);
+    this.track(publication);
+    await publication.finally(() => {
+      this.manualClipInProgress = false;
+    });
   }
 
   private async publishClipFor(
@@ -169,6 +211,9 @@ export class GoalWatcher {
     }
     await sleep(delaySeconds * MS_PER_SECOND);
     const replayPath = await this.obs.saveReplay();
+    if (!isReplayFile(replayPath)) {
+      throw new Error('OBS a annoncé un fichier de replay inattendu.');
+    }
     const clipPath = await encodeClip(ffmpegPath, replayPath, {
       clipSeconds: settings.clipSeconds,
       height: settings.clipHeight,
@@ -176,7 +221,16 @@ export class GoalWatcher {
     });
     await publishClip(settings.discordWebhookUrl, clipPath, message);
     if (settings.deleteLocalFiles) {
-      await Promise.all([rm(replayPath), rm(clipPath)]);
+      await this.deleteLocalFiles([replayPath, clipPath]);
+    }
+  }
+
+  /** The clip is already on Discord: a file that cannot be deleted must not turn it into a failure. */
+  private async deleteLocalFiles(filePaths: string[]): Promise<void> {
+    const results = await Promise.allSettled(filePaths.map((filePath) => rm(filePath, { force: true })));
+    const failures = results.filter((result) => result.status === 'rejected');
+    if (failures.length > 0) {
+      logger.warn({ errors: failures.map((failure) => String(failure.reason)) }, 'Local files could not be deleted');
     }
   }
 }

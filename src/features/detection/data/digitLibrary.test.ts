@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -39,6 +39,18 @@ describe('DigitLibrary', () => {
     const library = DigitLibrary.load(temporaryLibraryPath());
     library.learn(3, glyph(0));
     expect(library.recognize(glyph(60))).toBeNull();
+  });
+
+  it('should throw when the library file is corrupted', () => {
+    const filePath = temporaryLibraryPath();
+    writeFileSync(filePath, '{"3": "0101');
+    expect(() => DigitLibrary.load(filePath)).toThrow();
+  });
+
+  it('should keep the digit for the session when it cannot be written to disk', () => {
+    const library = DigitLibrary.load(join(temporaryLibraryPath(), 'missing-folder', 'digits.json'));
+    expect(() => library.learn(4, glyph(20))).not.toThrow();
+    expect(library.recognize(glyph(20))).toBe(4);
   });
 
   it('should keep learned digits when the library is loaded again', () => {

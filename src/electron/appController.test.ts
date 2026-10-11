@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../core/settings';
 import type { SettingsStore } from '../core/settingsStore';
+import { DigitLibrary } from '../features/detection/data/digitLibrary';
 import { TeamNameReader } from '../features/detection/data/teamNameReader';
 import type { AppState, Settings } from '../shared/types';
 import { AppController } from './appController';
@@ -36,7 +37,8 @@ vi.mock('../features/watcher/goalWatcher', () => ({
 }));
 vi.mock('../features/publishing/data/discordPublisher', () => ({ sendMessage: mocks.sendMessage }));
 
-const WEBHOOK_URL = 'https://discord.test/api/webhooks/1/token';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1/token';
+const SLOW_STOP_MS = 20;
 // Top-left quarter of a 2560x1440 frame showing ACH 0 - 0 CFC.
 const FRAME = readFileSync(join(process.cwd(), 'src/features/detection/data/fixtures/scoreboard.jpg'));
 const REGIONS = {
@@ -53,7 +55,7 @@ function createController(): AppController {
   return new AppController({
     // Only `load` and `save` are used by the controller.
     store: store as unknown as SettingsStore,
-    digits: { recognize: () => 0, learn: () => undefined },
+    digits: DigitLibrary.load(join(process.cwd(), 'assets/digits.json')),
     teamNames,
     ffmpegPath: 'ffmpeg.exe',
     onStateChanged,
@@ -97,9 +99,39 @@ describe('AppController', () => {
     expect(controller.getSettings()).toBe(DEFAULT_SETTINGS);
   });
 
+  it('should change only the given fields when saving a patch', async () => {
+    store.load.mockReturnValue({ ...DEFAULT_SETTINGS, recordedTeams: 'ACH' });
+    const saved = await createController().saveSettings({ clipSeconds: 30 });
+    expect(saved).toEqual({ ...DEFAULT_SETTINGS, recordedTeams: 'ACH', clipSeconds: 30 });
+  });
+
+  it('should leave the watcher running when the saved settings are unchanged', async () => {
+    const controller = createController();
+    await controller.saveSettings({ clipSeconds: DEFAULT_SETTINGS.clipSeconds });
+    expect(store.save).not.toHaveBeenCalled();
+    expect(mocks.watchers).toHaveLength(1);
+    expect(mocks.watchers[0]?.stop).not.toHaveBeenCalled();
+  });
+
+  it('should restart the watcher once per save when two saves overlap', async () => {
+    const controller = createController();
+    mocks.watchers[0]?.stop.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, SLOW_STOP_MS)));
+    const saves = [controller.saveSettings({ clipSeconds: 30 }), controller.saveSettings({ recordedTeams: 'ACH' })];
+    await Promise.all(saves);
+    expect(mocks.watchers).toHaveLength(3);
+    expect(mocks.watchers.map((watcher) => watcher.stop.mock.calls.length)).toEqual([1, 1, 0]);
+    expect(controller.getSettings()).toEqual({ ...DEFAULT_SETTINGS, clipSeconds: 30, recordedTeams: 'ACH' });
+  });
+
+  it('should still save when the previous save was rejected', async () => {
+    const controller = createController();
+    await expect(controller.saveSettings({ clipSeconds: 1 })).rejects.toThrow();
+    expect((await controller.saveSettings({ clipSeconds: 30 })).clipSeconds).toBe(30);
+  });
+
   it('should reset the status shown in the window when the settings are saved', async () => {
     const controller = createController();
-    await controller.saveSettings(DEFAULT_SETTINGS);
+    await controller.saveSettings({ clipSeconds: 30 });
     expect(onStateChanged).toHaveBeenCalledWith(
       expect.objectContaining({ status: expect.objectContaining({ obsConnected: false, score: null }) }),
     );
@@ -127,6 +159,17 @@ describe('AppController', () => {
 
   it('should return the captured frame as an image when capturing', async () => {
     expect(await createController().captureFrame(0)).toBe(`data:image/jpeg;base64,${FRAME.toString('base64')}`);
+  });
+
+  it('should refuse a capture delay that is not a reasonable number', async () => {
+    await expect(createController().captureFrame(100000)).rejects.toThrow();
+    await expect(createController().captureFrame('0')).rejects.toThrow();
+    expect(mocks.captureFrame).not.toHaveBeenCalled();
+  });
+
+  it('should refuse to preview regions that are malformed', async () => {
+    await expect(createController().previewLiveRegions({ home: REGIONS.home })).rejects.toThrow();
+    expect(mocks.captureFrame).not.toHaveBeenCalled();
   });
 
   it('should throw when previewing regions before any capture', async () => {

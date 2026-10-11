@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
+import { isDeepStrictEqual } from 'node:util';
 import { MAX_GOAL_HISTORY } from '../core/config';
-import { parseSettings } from '../core/settings';
+import { applySettingsPatch, parseCaptureDelay, parseScoreRegions, parseSettings } from '../core/settings';
 import type { SettingsStore } from '../core/settingsStore';
 import { cropScoreRegion, readGlyph } from '../features/detection/data/scoreboardReader';
 import type { TeamNameReader } from '../features/detection/data/teamNameReader';
@@ -37,6 +38,7 @@ export class AppController {
   private watcher: GoalWatcher;
   private state: AppState = { status: INITIAL_STATUS, goals: [] };
   private calibrationFrame: Buffer | null = null;
+  private pendingSave: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly options: AppControllerOptions) {
     this.settings = options.store.load();
@@ -60,9 +62,21 @@ export class AppController {
     return this.state;
   }
 
-  /** Validates and persists the settings, then restarts the watcher with them. */
-  async saveSettings(raw: unknown): Promise<Settings> {
-    const settings = parseSettings(raw);
+  /**
+   * Applies the changed fields, persists the settings and restarts the watcher with them.
+   * Saves run one after the other: two restarts at once would leave two watchers running.
+   */
+  saveSettings(rawPatch: unknown): Promise<Settings> {
+    const save = this.pendingSave.then(() => this.applySettings(rawPatch));
+    this.pendingSave = save.catch(() => undefined);
+    return save;
+  }
+
+  private async applySettings(rawPatch: unknown): Promise<Settings> {
+    const settings = applySettingsPatch(this.settings, rawPatch);
+    if (isDeepStrictEqual(settings, this.settings)) {
+      return this.settings;
+    }
     this.options.store.save(settings);
     this.settings = settings;
     await this.watcher.stop();
@@ -77,7 +91,7 @@ export class AppController {
     await this.watcher.publishManualClip();
   }
 
-  async testWebhook(webhookUrl: string): Promise<void> {
+  async testWebhook(webhookUrl: unknown): Promise<void> {
     if (webhookUrl === '') {
       throw new Error('Renseigne d’abord l’URL du webhook.');
     }
@@ -85,22 +99,23 @@ export class AppController {
   }
 
   /** Captures the OBS output after a delay, leaving time to switch back to the game. */
-  async captureFrame(delaySeconds: number): Promise<string> {
-    await sleep(delaySeconds * MS_PER_SECOND);
+  async captureFrame(rawDelaySeconds: unknown): Promise<string> {
+    await sleep(parseCaptureDelay(rawDelaySeconds) * MS_PER_SECOND);
     this.calibrationFrame = await this.watcher.captureFrame();
     return `data:image/jpeg;base64,${this.calibrationFrame.toString('base64')}`;
   }
 
-  async previewRegions(regions: ScoreRegions): Promise<CalibrationPreview> {
+  async previewRegions(rawRegions: unknown): Promise<CalibrationPreview> {
     const frame = this.calibrationFrame;
     if (frame === null) {
       throw new Error('Capture d’abord une image du jeu.');
     }
-    return this.previewFrame(frame, regions);
+    return this.previewFrame(frame, parseScoreRegions(rawRegions));
   }
 
   /** Previews the regions on the current OBS output, to check the calibration without capturing. */
-  async previewLiveRegions(regions: ScoreRegions): Promise<CalibrationPreview> {
+  async previewLiveRegions(rawRegions: unknown): Promise<CalibrationPreview> {
+    const regions = parseScoreRegions(rawRegions);
     return this.previewFrame(await this.watcher.captureFrame(), regions);
   }
 

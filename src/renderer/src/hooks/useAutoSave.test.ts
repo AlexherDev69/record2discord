@@ -58,6 +58,13 @@ describe('useAutoSave', () => {
     expect(result.current).toBe('invalid');
   });
 
+  it('should report the value as invalid when the save cannot be sent', async () => {
+    const { result, rerender } = renderAutoSave(vi.fn<Save>().mockRejectedValue(new Error('window closed')));
+    rerender({ value: 'changed' });
+    await waitForAutoSave();
+    expect(result.current).toBe('invalid');
+  });
+
   it('should save a pending change when the component goes away', () => {
     const save = vi.fn<Save>().mockResolvedValue(true);
     const { rerender, unmount } = renderAutoSave(save);

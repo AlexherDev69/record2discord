@@ -7,6 +7,7 @@ export interface KeyPress {
 }
 
 const NAVIGATION_KEYS = ['Insert', 'Home', 'End', 'PageUp', 'PageDown'];
+const FUNCTION_KEY_PATTERN = /^F([1-9]|1[0-9]|2[0-4])$/;
 
 /** Name of the pressed key in a system-wide shortcut, or null when the key cannot be used in one. */
 function keyName(code: string): string | null {
@@ -18,7 +19,7 @@ function keyName(code: string): string | null {
   if (numpadDigit !== null) {
     return `num${numpadDigit[1]}`;
   }
-  return /^F([1-9]|1[0-9]|2[0-4])$/.test(code) || NAVIGATION_KEYS.includes(code) ? code : null;
+  return FUNCTION_KEY_PATTERN.test(code) || NAVIGATION_KEYS.includes(code) ? code : null;
 }
 
 /** Turns a key press into a shortcut such as `Ctrl+Shift+F9`, or null when no usable key is pressed yet. */
@@ -27,6 +28,11 @@ export function acceleratorFromKeyPress(press: KeyPress): string | null {
   if (key === null) {
     return null;
   }
-  const modifiers = [press.ctrlKey ? 'Ctrl' : null, press.altKey ? 'Alt' : null, press.shiftKey ? 'Shift' : null];
-  return [...modifiers.filter((modifier) => modifier !== null), key].join('+');
+  const pressed = [press.ctrlKey ? 'Ctrl' : null, press.altKey ? 'Alt' : null, press.shiftKey ? 'Shift' : null];
+  const modifiers = pressed.filter((modifier) => modifier !== null);
+  // The shortcut is taken from every application: a bare letter or digit would no longer be typable.
+  if (modifiers.length === 0 && !FUNCTION_KEY_PATTERN.test(key)) {
+    return null;
+  }
+  return [...modifiers, key].join('+');
 }

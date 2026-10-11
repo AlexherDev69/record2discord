@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { CalibrationPreview, IpcResult, RegionPreview, ScoreRegions, Settings } from '../../../shared/types';
+import type { CalibrationPreview, RegionPreview, ScoreRegions, Settings } from '../../../shared/types';
 import { useLivePreview } from '../hooks/useLivePreview';
+import type { SaveSettings } from '../hooks/useSettings';
 import { isScoreboardVisible, type LivePreview } from '../lib/livePreview';
 import { RegionSelector, type Side } from './RegionSelector';
 import { TeamFilterCard } from './TeamFilterCard';
 
 interface CalibrationPanelProps {
   settings: Settings;
-  onSave: (settings: Settings) => Promise<IpcResult<Settings>>;
+  onSave: SaveSettings;
 }
 
 interface SidePreviewProps {
@@ -76,7 +77,16 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
     if (frame === null) {
       return;
     }
-    void window.api.previewRegions(regions).then((result) => setPreview(result.success ? result.data : null));
+    // Regions change on every mouse move while drawing: only the answer for the latest ones is shown.
+    let isLatest = true;
+    void window.api.previewRegions(regions).then((result) => {
+      if (isLatest) {
+        setPreview(result.success ? result.data : null);
+      }
+    });
+    return () => {
+      isLatest = false;
+    };
   }, [frame, regions]);
 
   useEffect(() => {
@@ -103,7 +113,7 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
   };
 
   const save = async (): Promise<void> => {
-    const result = await onSave({ ...settings, scoreRegions: regions });
+    const result = await onSave({ scoreRegions: regions });
     setMessage(result.success ? 'Zones enregistrées.' : 'Zones invalides : redessine-les sur l’image.');
   };
 

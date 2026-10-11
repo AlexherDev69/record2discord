@@ -18,10 +18,15 @@ function argumentAfter(flag: string): string | undefined {
   return ffmpegArguments()[ffmpegArguments().indexOf(flag) + 1];
 }
 
-beforeEach(() => {
-  execFileMock.mockReset().mockImplementation((_file: string, _args: string[], callback: ExecFileCallback) => {
-    callback(null, { stdout: '', stderr: '' });
+function ffmpegAnswers(error: Error | null): void {
+  execFileMock.mockImplementation((_file: string, _args: string[], _options: object, callback: ExecFileCallback) => {
+    callback(error, { stdout: '', stderr: '' });
   });
+}
+
+beforeEach(() => {
+  execFileMock.mockReset();
+  ffmpegAnswers(null);
 });
 
 describe('encodeClip', () => {
@@ -44,10 +49,13 @@ describe('encodeClip', () => {
     expect(argumentAfter('-maxrate')).toBe(`${EXPECTED_VIDEO_KBPS}k`);
   });
 
+  it('should give ffmpeg a time limit', async () => {
+    await encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS);
+    expect(execFileMock.mock.calls[0]?.[2]).toEqual({ timeout: expect.any(Number) });
+  });
+
   it('should throw when ffmpeg fails', async () => {
-    execFileMock.mockImplementation((_file: string, _args: string[], callback: ExecFileCallback) => {
-      callback(new Error('encoder not found'), { stdout: '', stderr: '' });
-    });
+    ffmpegAnswers(new Error('encoder not found'));
     await expect(encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS)).rejects.toThrow('encoder not found');
   });
 });

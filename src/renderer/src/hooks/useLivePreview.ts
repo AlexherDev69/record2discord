@@ -19,8 +19,16 @@ export function useLivePreview(regions: ScoreRegions, enabled: boolean): LivePre
       return;
     }
     let cancelled = false;
+    let isReading = false;
     const refresh = async (): Promise<void> => {
-      const result = await window.api.previewLiveRegions(regions);
+      // A slow answer is not overtaken by a newer request, which would show readings out of order.
+      if (isReading) {
+        return;
+      }
+      isReading = true;
+      const result = await window.api.previewLiveRegions(regions).finally(() => {
+        isReading = false;
+      });
       if (cancelled) {
         return;
       }

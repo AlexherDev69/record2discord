@@ -6,8 +6,15 @@ function press(code: string, modifiers: Partial<KeyPress> = {}): KeyPress {
 }
 
 describe('acceleratorFromKeyPress', () => {
-  it('should give the key alone when no modifier is held', () => {
+  it('should give a function key alone when no modifier is held', () => {
     expect(acceleratorFromKeyPress(press('F9'))).toBe('F9');
+  });
+
+  it('should return null when a typing key is pressed without a modifier', () => {
+    expect(acceleratorFromKeyPress(press('KeyA'))).toBeNull();
+    expect(acceleratorFromKeyPress(press('Digit5'))).toBeNull();
+    expect(acceleratorFromKeyPress(press('Numpad0'))).toBeNull();
+    expect(acceleratorFromKeyPress(press('Home'))).toBeNull();
   });
 
   it('should prefix the modifiers when some are held', () => {
@@ -16,7 +23,7 @@ describe('acceleratorFromKeyPress', () => {
   });
 
   it('should name numpad digits the way the system expects', () => {
-    expect(acceleratorFromKeyPress(press('Numpad0'))).toBe('num0');
+    expect(acceleratorFromKeyPress(press('Numpad0', { ctrlKey: true }))).toBe('Ctrl+num0');
   });
 
   it('should return null when only a modifier is pressed', () => {

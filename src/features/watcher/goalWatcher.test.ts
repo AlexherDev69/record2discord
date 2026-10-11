@@ -38,7 +38,9 @@ vi.mock('../clip/data/clipEncoder', () => ({ encodeClip: mocks.encodeClip }));
 vi.mock('../publishing/data/discordPublisher', () => ({ publishClip: mocks.publishClip }));
 vi.mock('node:fs/promises', () => ({ rm: mocks.rm }));
 
-const WEBHOOK_URL = 'https://discord.test/api/webhooks/1/token';
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1/token';
+const REPLAY_PATH = 'C:/replays/goal.mkv';
+const CLIP_PATH = 'C:/replays/goal.mkv.discord.mp4';
 const SETTINGS: Settings = { ...DEFAULT_SETTINGS, discordWebhookUrl: WEBHOOK_URL, postGoalDelaySeconds: 0 };
 // Long enough for a publication started by mistake to reach OBS.
 const PUBLISH_SETTLE_MS = 50;
@@ -91,9 +93,9 @@ beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset());
   mocks.connect.mockResolvedValue(undefined);
   mocks.captureProgramFrame.mockResolvedValue(Buffer.from('frame'));
-  mocks.saveReplay.mockResolvedValue('replay.mkv');
+  mocks.saveReplay.mockResolvedValue(REPLAY_PATH);
   mocks.readScoreboard.mockResolvedValue(reading(0, 0));
-  mocks.encodeClip.mockResolvedValue('replay.mkv.discord.mp4');
+  mocks.encodeClip.mockResolvedValue(CLIP_PATH);
   mocks.publishClip.mockResolvedValue(undefined);
   mocks.rm.mockResolvedValue(undefined);
   vi.spyOn(teamNames, 'read').mockImplementation((_frame, region) =>
@@ -112,7 +114,7 @@ describe('GoalWatcher', () => {
     await vi.waitFor(() => expect(started.onGoal).toHaveBeenCalled());
     expect(mocks.publishClip).toHaveBeenCalledWith(
       WEBHOOK_URL,
-      'replay.mkv.discord.mp4',
+      CLIP_PATH,
       '⚽ But de ACH : ACH 1 - 0 CFC',
     );
     expect(started.onGoal).toHaveBeenCalledWith(
@@ -126,7 +128,7 @@ describe('GoalWatcher', () => {
     await vi.waitFor(() => expect(started.onGoal).toHaveBeenCalled());
     expect(mocks.encodeClip).toHaveBeenCalledWith(
       'ffmpeg.exe',
-      'replay.mkv',
+      REPLAY_PATH,
       expect.objectContaining({ clipSeconds: 15, height: 720 }),
     );
   });
@@ -135,7 +137,77 @@ describe('GoalWatcher', () => {
     const started = startWatcher({ deleteLocalFiles: true });
     await scoreHomeGoal(started);
     await vi.waitFor(() => expect(started.onGoal).toHaveBeenCalled());
-    expect(mocks.rm.mock.calls.flat()).toEqual(['replay.mkv', 'replay.mkv.discord.mp4']);
+    expect(mocks.rm.mock.calls.map(([filePath]) => filePath as string)).toEqual([REPLAY_PATH, CLIP_PATH]);
+  });
+
+  it('should still report the clip as published when a local file cannot be deleted', async () => {
+    mocks.rm.mockRejectedValue(new Error('EBUSY'));
+    const started = startWatcher({ deleteLocalFiles: true });
+    await scoreHomeGoal(started);
+    await vi.waitFor(() => expect(started.onGoal).toHaveBeenCalled());
+    expect(started.onGoal).toHaveBeenCalledWith(expect.objectContaining({ published: true, error: null }));
+  });
+
+  it('should refuse to publish when OBS announces something else than a local video file', async () => {
+    mocks.saveReplay.mockResolvedValue('C:/Users/me/Documents/notes.txt');
+    const started = startWatcher();
+    await scoreHomeGoal(started);
+    await vi.waitFor(() => expect(started.onGoal).toHaveBeenCalled());
+    expect(started.onGoal).toHaveBeenCalledWith(expect.objectContaining({ published: false }));
+    expect(mocks.encodeClip).not.toHaveBeenCalled();
+    expect(mocks.rm).not.toHaveBeenCalled();
+  });
+
+  it('should let a clip being published finish when stopped', async () => {
+    let finishUpload: () => void = () => undefined;
+    mocks.publishClip.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishUpload = resolve;
+      }),
+    );
+    const started = startWatcher();
+    await scoreHomeGoal(started);
+    await vi.waitFor(() => expect(mocks.publishClip).toHaveBeenCalled());
+    let stopped = false;
+    const stopping = started.watcher.stop().then(() => {
+      stopped = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, PUBLISH_SETTLE_MS));
+    expect(stopped).toBe(false);
+    finishUpload();
+    await stopping;
+    expect(started.onGoal).toHaveBeenCalledWith(expect.objectContaining({ published: true }));
+  });
+
+  it('should post a single clip when the manual shortcut is pressed twice in a row', async () => {
+    const { watcher } = startWatcher();
+    await Promise.all([watcher.publishManualClip(), watcher.publishManualClip()]);
+    expect(mocks.saveReplay).toHaveBeenCalledTimes(1);
+    await watcher.publishManualClip();
+    expect(mocks.saveReplay).toHaveBeenCalledTimes(2);
+  });
+
+  it('should keep OBS connected and blame the reading when the scoreboard cannot be read', async () => {
+    mocks.readScoreboard.mockRejectedValue(new Error('bad extract area'));
+    const { onStatus } = startWatcher();
+    await vi.waitFor(() =>
+      expect(onStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ obsConnected: true, error: expect.stringContaining('bad extract area') }),
+      ),
+    );
+    expect(mocks.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('should open a single OBS connection when the preview and the loop ask at the same time', async () => {
+    const { watcher } = startWatcher();
+    await watcher.captureFrame();
+    expect(mocks.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('should refuse to capture a frame when stopped', async () => {
+    const { watcher } = startWatcher();
+    await watcher.stop();
+    await expect(watcher.captureFrame()).rejects.toThrow('redémarre');
   });
 
   it('should keep the local files when the setting is off', async () => {
@@ -195,7 +267,7 @@ describe('GoalWatcher', () => {
     await started.watcher.publishManualClip();
     expect(mocks.publishClip).toHaveBeenCalledWith(
       WEBHOOK_URL,
-      'replay.mkv.discord.mp4',
+      CLIP_PATH,
       'Extrait enregistré manuellement',
     );
     expect(started.onGoal).toHaveBeenCalledWith(expect.objectContaining({ score: null, published: true }));
