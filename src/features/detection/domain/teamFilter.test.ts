@@ -24,6 +24,16 @@ describe('shouldRecordGoal', () => {
     expect(shouldRecordGoal('ACH', 'CFC')).toBe(false);
   });
 
+  it('should record the goal when the listed team contains digits', () => {
+    expect(shouldRecordGoal('s04, 1fc', 'S04')).toBe(true);
+    expect(parseTeamFilter('s04, 1fc')).toEqual(['S04', '1FC']);
+  });
+
+  it('should record the goal when a digit was read as its look-alike letter', () => {
+    expect(shouldRecordGoal('S04', 'SO4')).toBe(true);
+    expect(shouldRecordGoal('ACO', 'AC0')).toBe(true);
+  });
+
   it('should record the goal when the scorer could not be read', () => {
     expect(shouldRecordGoal('ACH', null)).toBe(true);
   });

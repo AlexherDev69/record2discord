@@ -23,6 +23,10 @@ describe('parseTeamName', () => {
     expect(parseTeamName(' acH.\n')).toBe('ACH');
   });
 
+  it('should keep the digits when the abbreviation contains some', () => {
+    expect(parseTeamName('s04')).toBe('S04');
+  });
+
   it('should return null when the text is too short to be a name', () => {
     expect(parseTeamName('|')).toBeNull();
   });
