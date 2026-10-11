@@ -3,6 +3,7 @@ import type { CalibrationPreview, IpcResult, RegionPreview, ScoreRegions, Settin
 import { useLivePreview } from '../hooks/useLivePreview';
 import { isScoreboardVisible, type LivePreview } from '../lib/livePreview';
 import { RegionSelector, type Side } from './RegionSelector';
+import { TeamFilterCard } from './TeamFilterCard';
 
 interface CalibrationPanelProps {
   settings: Settings;
@@ -142,6 +143,7 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
           </div>
         )}
       </section>
+      <TeamFilterCard settings={settings} onSave={onSave} />
       {frame !== null && (
         <RegionSelector
           frameDataUrl={frame}

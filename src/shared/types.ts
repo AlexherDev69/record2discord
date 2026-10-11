@@ -31,6 +31,8 @@ export interface Settings {
   obsPath: string;
   startWithWindows: boolean;
   scoreRegions: ScoreRegions;
+  /** Team abbreviations whose goals are recorded, as typed by the user. Empty records every goal. */
+  recordedTeams: string;
 }
 
 export interface WatcherStatus {

@@ -85,6 +85,8 @@ Les zones du score sont préréglées pour le bandeau d'EA Sports FC 27 sur un �
 
 Pour vérifier la calibration sans rien toucher, ouvre l'onglet **Calibration** pendant un match : le bloc **Ce que lit l'application** affiche en direct l'image de chaque zone et le chiffre reconnu. Chaque image doit montrer un seul chiffre entier. Si le jeu se met en pause quand tu le quittes, la dernière lecture faite en match reste affichée.
 
+Le même onglet permet de limiter l'envoi aux buts de certaines équipes : saisis leurs initiales telles qu'affichées sur le bandeau (par exemple `ACH, CFC`). Champ vide : tous les buts sont envoyés. Si le nom de l'équipe est illisible, le but est envoyé quand même.
+
 ## Limites connues
 
 - Le score affiché dans le message est fiable de 0 à 9. Au-delà, il est compté à partir du dernier score lu.

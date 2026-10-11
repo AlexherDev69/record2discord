@@ -13,6 +13,7 @@ import { encodeClip } from '../clip/data/clipEncoder';
 import { readScoreboard } from '../detection/data/scoreboardReader';
 import type { TeamNameReader } from '../detection/data/teamNameReader';
 import { GoalDetector, type DigitRecognizer, type Goal } from '../detection/domain/goalDetector';
+import { shouldRecordGoal } from '../detection/domain/teamFilter';
 import { publishClip } from '../publishing/data/discordPublisher';
 import { formatGoalMessage } from '../publishing/domain/goalMessage';
 import { describeObsError, ObsClient } from '../recording/data/obsClient';
@@ -119,8 +120,13 @@ export class GoalWatcher {
   /** `frame` is the one the goal was detected on, so the scoreboard is visible in it. */
   private async publishGoal({ score, scorer }: Goal, frame: Buffer): Promise<void> {
     const record: GoalRecord = { time: Date.now(), score, published: false, error: null };
+    const team = await this.readTeamName(frame, scorer);
+    if (!shouldRecordGoal(this.options.settings.recordedTeams, team)) {
+      logger.info({ score, team }, 'Goal skipped: team is not in the recorded teams');
+      return;
+    }
     try {
-      await this.recordAndPublish(score, await this.readTeamName(frame, scorer));
+      await this.recordAndPublish(score, team);
       logger.info({ score }, 'Goal clip published');
       this.options.onGoal({ ...record, published: true });
     } catch (error: unknown) {

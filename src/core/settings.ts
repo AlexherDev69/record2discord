@@ -4,6 +4,7 @@ import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from './config';
 
 const MAX_CLIP_SECONDS = 60;
 const MAX_POST_GOAL_DELAY_SECONDS = 30;
+const MAX_RECORDED_TEAMS_LENGTH = 200;
 
 const fraction = z.number().min(0).max(1);
 const regionSchema = z.object({ left: fraction, top: fraction, width: fraction, height: fraction });
@@ -28,6 +29,7 @@ const settingsSchema = z.object({
   obsPath: z.string().default('C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe'),
   startWithWindows: z.boolean().default(false),
   scoreRegions: z.object({ home: regionSchema, away: regionSchema }).default(DEFAULT_SCORE_REGIONS),
+  recordedTeams: z.string().max(MAX_RECORDED_TEAMS_LENGTH).default(''),
 });
 
 /** Validates settings coming from the UI or from disk, filling missing fields with defaults. */

@@ -27,6 +27,10 @@ describe('parseSettings', () => {
     expect(() => parseSettings({ scoreRegions: { ...DEFAULT_SETTINGS.scoreRegions, home } })).toThrow();
   });
 
+  it('should record every team when no team filter is given', () => {
+    expect(DEFAULT_SETTINGS.recordedTeams).toBe('');
+  });
+
   it('should throw when the clip height is not a supported resolution', () => {
     expect(() => parseSettings({ clipHeight: 900 })).toThrow();
   });
