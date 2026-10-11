@@ -1,14 +1,17 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { MAX_GOAL_HISTORY } from '../core/config';
+import { logger } from '../core/logger';
 import { applySettingsPatch, parseCaptureDelay, parseScoreRegions, parseSettings } from '../core/settings';
 import type { SettingsStore } from '../core/settingsStore';
 import { cropScoreRegion, readGlyph } from '../features/detection/data/scoreboardReader';
 import type { TeamNameReader } from '../features/detection/data/teamNameReader';
 import type { DigitRecognizer } from '../features/detection/domain/goalDetector';
 import { sendMessage } from '../features/publishing/data/discordPublisher';
+import { findNewerRelease } from '../features/updates/data/releaseChecker';
 import { GoalWatcher } from '../features/watcher/goalWatcher';
 import type {
+  AppInfo,
   AppState,
   CalibrationPreview,
   GoalRecord,
@@ -28,6 +31,7 @@ export interface AppControllerOptions {
   digits: DigitRecognizer;
   teamNames: TeamNameReader;
   ffmpegPath: string;
+  appVersion: string;
   onStateChanged: (state: AppState) => void;
   onSettingsApplied: (settings: Settings) => void;
 }
@@ -36,7 +40,7 @@ export interface AppControllerOptions {
 export class AppController {
   private settings: Settings;
   private watcher: GoalWatcher;
-  private state: AppState = { status: INITIAL_STATUS, goals: [] };
+  private state: AppState = { status: INITIAL_STATUS, goals: [], availableUpdate: null };
   private calibrationFrame: Buffer | null = null;
   private pendingSave: Promise<unknown> = Promise.resolve();
 
@@ -84,6 +88,22 @@ export class AppController {
     this.setState({ ...this.state, status: INITIAL_STATUS });
     this.start();
     return settings;
+  }
+
+  getAppInfo(): AppInfo {
+    return { version: this.options.appVersion };
+  }
+
+  /** Looks for a newer release. A failed check is only logged: the app works the same without it. */
+  async checkForUpdate(): Promise<void> {
+    try {
+      const availableUpdate = await findNewerRelease(this.options.appVersion);
+      if (availableUpdate !== this.state.availableUpdate) {
+        this.setState({ ...this.state, availableUpdate });
+      }
+    } catch (error: unknown) {
+      logger.warn({ err: error }, 'Update check failed');
+    }
   }
 
   /** Posts the last seconds of the replay buffer, for the keyboard shortcut. */

@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   captureFrame: vi.fn(),
   publishManualClip: vi.fn(),
   sendMessage: vi.fn(),
+  findNewerRelease: vi.fn(),
 }));
 
 vi.mock('../features/watcher/goalWatcher', () => ({
@@ -36,9 +37,12 @@ vi.mock('../features/watcher/goalWatcher', () => ({
   },
 }));
 vi.mock('../features/publishing/data/discordPublisher', () => ({ sendMessage: mocks.sendMessage }));
+vi.mock('../features/updates/data/releaseChecker', () => ({ findNewerRelease: mocks.findNewerRelease }));
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1/token';
 const SLOW_STOP_MS = 20;
+const APP_VERSION = '1.2.3';
+const NEWER_VERSION = '1.2.4';
 // Top-left quarter of a 2560x1440 frame showing ACH 0 - 0 CFC.
 const FRAME = readFileSync(join(process.cwd(), 'src/features/detection/data/fixtures/scoreboard.jpg'));
 const REGIONS = {
@@ -58,6 +62,7 @@ function createController(): AppController {
     digits: DigitLibrary.load(join(process.cwd(), 'assets/digits.json')),
     teamNames,
     ffmpegPath: 'ffmpeg.exe',
+    appVersion: APP_VERSION,
     onStateChanged,
     onSettingsApplied,
   });
@@ -70,6 +75,7 @@ beforeEach(() => {
   mocks.captureFrame.mockResolvedValue(FRAME);
   mocks.sendMessage.mockResolvedValue(undefined);
   mocks.publishManualClip.mockResolvedValue(undefined);
+  mocks.findNewerRelease.mockResolvedValue(null);
   vi.spyOn(teamNames, 'read').mockResolvedValue('ACH');
 });
 
@@ -198,5 +204,32 @@ describe('AppController', () => {
     const offScoreboard = { left: 0.6, top: 0.02, width: 0.075, height: 0.075 };
     const preview = await createController().previewLiveRegions({ home: offScoreboard, away: offScoreboard });
     expect(preview.home).toEqual(expect.objectContaining({ looksLikeScoreboard: false, digit: null, teamName: null }));
+  });
+
+  it('should give the version of the app when asked for its information', () => {
+    expect(createController().getAppInfo()).toEqual({ version: APP_VERSION });
+  });
+
+  it('should show the newer version when a newer release exists', async () => {
+    mocks.findNewerRelease.mockResolvedValue(NEWER_VERSION);
+    const controller = createController();
+    await controller.checkForUpdate();
+    expect(mocks.findNewerRelease).toHaveBeenCalledWith(APP_VERSION);
+    expect(controller.getState().availableUpdate).toBe(NEWER_VERSION);
+    expect(onStateChanged).toHaveBeenCalledWith(expect.objectContaining({ availableUpdate: NEWER_VERSION }));
+  });
+
+  it('should leave the state untouched when no newer release exists', async () => {
+    const controller = createController();
+    await controller.checkForUpdate();
+    expect(controller.getState().availableUpdate).toBeNull();
+    expect(onStateChanged).not.toHaveBeenCalled();
+  });
+
+  it('should keep running when the update check fails', async () => {
+    mocks.findNewerRelease.mockRejectedValue(new Error('offline'));
+    const controller = createController();
+    await expect(controller.checkForUpdate()).resolves.toBeUndefined();
+    expect(controller.getState().availableUpdate).toBeNull();
   });
 });

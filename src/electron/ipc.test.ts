@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SETTINGS } from '../core/settings';
-import { IPC_CHANNELS } from '../shared/types';
+import { IPC_CHANNELS, type ExternalPage } from '../shared/types';
 import type { AppController } from './appController';
 import { registerIpcHandlers } from './ipc';
 
@@ -19,7 +19,9 @@ const controller = {
   captureFrame: vi.fn(),
   previewRegions: vi.fn(),
   previewLiveRegions: vi.fn(),
+  getAppInfo: vi.fn(),
 };
+const openPage = vi.fn<(page: ExternalPage) => Promise<void>>();
 
 function invoke(channel: string, ...args: unknown[]): unknown {
   const handler = handlers.get(channel);
@@ -33,7 +35,8 @@ beforeEach(() => {
   handlers.clear();
   Object.values(controller).forEach((mock) => mock.mockReset());
   // Only the methods called by the handlers are needed.
-  registerIpcHandlers(controller as unknown as AppController);
+  openPage.mockReset().mockResolvedValue(undefined);
+  registerIpcHandlers(controller as unknown as AppController, openPage);
 });
 
 describe('registerIpcHandlers', () => {
@@ -61,5 +64,20 @@ describe('registerIpcHandlers', () => {
     controller.testWebhook.mockResolvedValue(undefined);
     expect(await invoke(IPC_CHANNELS.testWebhook, 'https://discord.test/hook')).toEqual({ success: true, data: null });
     expect(controller.testWebhook).toHaveBeenCalledWith('https://discord.test/hook');
+  });
+
+  it('should return the application information when the window asks for it', () => {
+    controller.getAppInfo.mockReturnValue({ version: '1.2.3' });
+    expect(invoke(IPC_CHANNELS.getAppInfo)).toEqual({ version: '1.2.3' });
+  });
+
+  it('should open the page when the window asks for a known one', async () => {
+    await invoke(IPC_CHANNELS.openExternalPage, 'repository');
+    expect(openPage).toHaveBeenCalledWith('repository');
+  });
+
+  it('should open nothing when the window asks for an unknown page', async () => {
+    await Promise.resolve(invoke(IPC_CHANNELS.openExternalPage, 'https://example.com')).catch(() => undefined);
+    expect(openPage).not.toHaveBeenCalled();
   });
 });

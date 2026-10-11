@@ -56,6 +56,16 @@ export interface GoalRecord {
 export interface AppState {
   status: WatcherStatus;
   goals: GoalRecord[];
+  /** Version of a newer release available for download, or null when up to date. */
+  availableUpdate: string | null;
+}
+
+/** Web pages the window can ask to open in the browser. Only these fixed pages can be opened. */
+export const EXTERNAL_PAGES = ['repository', 'latestRelease'] as const;
+export type ExternalPage = (typeof EXTERNAL_PAGES)[number];
+
+export interface AppInfo {
+  version: string;
 }
 
 export interface RegionPreview {
@@ -83,6 +93,8 @@ export interface AppApi {
   captureFrame(delaySeconds: number): Promise<IpcResult<string>>;
   previewRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
   previewLiveRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
+  getAppInfo(): Promise<AppInfo>;
+  openExternalPage(page: ExternalPage): Promise<IpcResult<null>>;
 }
 
 export const IPC_CHANNELS = {
@@ -94,4 +106,6 @@ export const IPC_CHANNELS = {
   captureFrame: 'calibration:capture',
   previewRegions: 'calibration:preview',
   previewLiveRegions: 'calibration:preview-live',
+  getAppInfo: 'app:info',
+  openExternalPage: 'app:open-page',
 } as const;

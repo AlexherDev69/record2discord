@@ -14,6 +14,8 @@ const api: AppApi = {
   captureFrame: (delaySeconds) => ipcRenderer.invoke(IPC_CHANNELS.captureFrame, delaySeconds),
   previewRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.previewRegions, regions),
   previewLiveRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.previewLiveRegions, regions),
+  getAppInfo: () => ipcRenderer.invoke(IPC_CHANNELS.getAppInfo),
+  openExternalPage: (page) => ipcRenderer.invoke(IPC_CHANNELS.openExternalPage, page),
 };
 
 contextBridge.exposeInMainWorld('api', api);

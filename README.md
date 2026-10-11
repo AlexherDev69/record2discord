@@ -14,7 +14,7 @@ Chaque but d'EA Sports FC, clippé et posté sur Discord. Sans y penser.
 
 Record2Discord est une application Windows qui regarde ton match, repère les buts sur le bandeau du score et envoie le clip dans le salon Discord de ton choix. Elle vit dans la zone de notification et ne demande plus rien une fois réglée.
 
-Tout tourne sur ta machine. La seule sortie réseau est l'envoi du clip à Discord.
+Tout tourne sur ta machine. Les seules sorties réseau sont l'envoi du clip à Discord et, une fois par jour, une vérification de la dernière version publiée sur GitHub. Quand une version plus récente existe, un bandeau le signale dans la fenêtre : rien n'est téléchargé ni installé tout seul.
 
 ## Fonctionnement
 

@@ -27,6 +27,12 @@ export const GLYPH_MAX_INK_RATIO = 0.5;
 // Differing pixels, relative to the ink of the larger glyph, under which two glyphs match.
 export const GLYPH_MAX_DIFF_RATIO = 0.1;
 
+export const REPOSITORY_URL = 'https://github.com/AlexherDev69/record2discord';
+export const LATEST_RELEASE_URL = `${REPOSITORY_URL}/releases/latest`;
+export const LATEST_RELEASE_API_URL = 'https://api.github.com/repos/AlexherDev69/record2discord/releases/latest';
+export const UPDATE_CHECK_TIMEOUT_MS = 10_000;
+export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 export const CLIP_FPS = 30;
 export const CLIP_AUDIO_KBPS = 96;
 export const CLIP_VIDEO_ENCODER = 'h264_nvenc';

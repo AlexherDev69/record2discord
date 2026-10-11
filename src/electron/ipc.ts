@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
+import { z } from 'zod';
 import { logger } from '../core/logger';
-import { IPC_CHANNELS, type IpcResult } from '../shared/types';
+import { EXTERNAL_PAGES, IPC_CHANNELS, type ExternalPage, type IpcResult } from '../shared/types';
 import type { AppController } from './appController';
 
 /** Runs a handler and turns a thrown error into a result the window can display. */
@@ -13,7 +14,17 @@ async function toResult<T>(run: () => Promise<T>): Promise<IpcResult<T>> {
   }
 }
 
-export function registerIpcHandlers(controller: AppController): void {
+const externalPageSchema = z.enum(EXTERNAL_PAGES);
+
+/** `openPage` opens one of the known web pages in the browser: the window cannot open any other address. */
+export function registerIpcHandlers(controller: AppController, openPage: (page: ExternalPage) => Promise<void>): void {
+  ipcMain.handle(IPC_CHANNELS.getAppInfo, () => controller.getAppInfo());
+  ipcMain.handle(IPC_CHANNELS.openExternalPage, (_event, page: unknown) =>
+    toResult(async () => {
+      await openPage(externalPageSchema.parse(page));
+      return null;
+    }),
+  );
   ipcMain.handle(IPC_CHANNELS.getSettings, () => controller.getSettings());
   ipcMain.handle(IPC_CHANNELS.getState, () => controller.getState());
   ipcMain.handle(IPC_CHANNELS.saveSettings, (_event, settings: unknown) =>

@@ -1,11 +1,12 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, globalShortcut, Menu, nativeImage, safeStorage, Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, safeStorage, shell, Tray } from 'electron';
+import { LATEST_RELEASE_URL, REPOSITORY_URL, UPDATE_CHECK_INTERVAL_MS } from '../core/config';
 import { addLogFile, logger } from '../core/logger';
 import { SettingsStore, type SettingsCodec } from '../core/settingsStore';
 import { DigitLibrary } from '../features/detection/data/digitLibrary';
 import { TeamNameReader } from '../features/detection/data/teamNameReader';
-import { IPC_CHANNELS, type AppState, type Settings } from '../shared/types';
+import { IPC_CHANNELS, type AppState, type ExternalPage, type Settings } from '../shared/types';
 import { AppController } from './appController';
 import { registerIpcHandlers } from './ipc';
 
@@ -112,12 +113,22 @@ function createWindow(): BrowserWindow {
   return created;
 }
 
+const EXTERNAL_PAGE_URLS: Record<ExternalPage, string> = {
+  repository: REPOSITORY_URL,
+  latestRelease: LATEST_RELEASE_URL,
+};
+
+async function openExternalPage(page: ExternalPage): Promise<void> {
+  await shell.openExternal(EXTERNAL_PAGE_URLS[page]);
+}
+
 function createTray(): Tray {
   const created = new Tray(nativeImage.createFromPath(bundledPath('icon.png', 'build/icon.png')));
   created.setToolTip(APP_TITLE);
   created.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Ouvrir', click: showWindow },
+      { label: 'Page GitHub', click: () => void openExternalPage('repository') },
       { type: 'separator' },
       { label: 'Quitter', click: () => app.quit() },
     ]),
@@ -135,17 +146,20 @@ async function bootstrap(): Promise<void> {
     digits: loadDigitLibrary(),
     teamNames: new TeamNameReader(bundledPath('tessdata', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int')),
     ffmpegPath: bundledPath('ffmpeg.exe', 'node_modules/ffmpeg-static/ffmpeg.exe'),
+    appVersion: app.getVersion(),
     onStateChanged: sendState,
     onSettingsApplied: (settings) => {
       applyStartWithWindows(settings);
       applyManualClipShortcut(settings.manualClipShortcut, () => void controller.publishManualClip());
     },
   });
-  registerIpcHandlers(controller);
+  registerIpcHandlers(controller, openExternalPage);
   window = createWindow();
   tray = createTray();
   controller.start();
   logger.info('Application started');
+  void controller.checkForUpdate();
+  setInterval(() => void controller.checkForUpdate(), UPDATE_CHECK_INTERVAL_MS);
 
   app.on('before-quit', () => {
     isQuitting = true;
