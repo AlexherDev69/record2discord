@@ -9,6 +9,8 @@ interface RegionSelectorProps {
   regions: ScoreRegions;
   activeSide: Side;
   onChange: (region: Region) => void;
+  /** Called once a rectangle has been drawn. */
+  onDrawEnd: () => void;
 }
 
 // The frame is shown magnified, since a score digit is only a few dozen pixels wide.
@@ -21,9 +23,10 @@ function toPercent(fraction: number): string {
 }
 
 /** Shows the captured frame and lets the user draw the active score region with the mouse. */
-export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: RegionSelectorProps) {
+export function RegionSelector({ frameDataUrl, regions, activeSide, onChange, onDrawEnd }: RegionSelectorProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef<Point | null>(null);
+  const hasDrawn = useRef(false);
   const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
 
   const pointFromEvent = (event: MouseEvent): Point | null => {
@@ -38,6 +41,15 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: 
     const point = pointFromEvent(event);
     if (dragStart.current !== null && point !== null) {
       onChange(regionFromPoints(dragStart.current, point));
+      hasDrawn.current = true;
+    }
+  };
+
+  const endDrag = (): void => {
+    dragStart.current = null;
+    if (hasDrawn.current) {
+      hasDrawn.current = false;
+      onDrawEnd();
     }
   };
 
@@ -50,12 +62,8 @@ export function RegionSelector({ frameDataUrl, regions, activeSide, onChange }: 
           dragStart.current = pointFromEvent(event);
         }}
         onMouseMove={drag}
-        onMouseUp={() => {
-          dragStart.current = null;
-        }}
-        onMouseLeave={() => {
-          dragStart.current = null;
-        }}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
       >
         <img
           src={frameDataUrl}

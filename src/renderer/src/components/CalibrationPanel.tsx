@@ -24,6 +24,9 @@ const SIDE_LABELS: Record<Side, string> = {
   away: 'Score du bas',
 };
 
+// Drawing a rectangle moves on to the other score, so no button is needed to pick one.
+const OTHER_SIDE: Record<Side, Side> = { home: 'away', away: 'home' };
+
 function describePreview(preview: RegionPreview): string {
   if (!preview.looksLikeScoreboard) {
     return 'Pas un chiffre du bandeau';
@@ -62,6 +65,7 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
   const [frame, setFrame] = useState<string | null>(null);
   const [regions, setRegions] = useState<ScoreRegions>(settings.scoreRegions);
   const [activeSide, setActiveSide] = useState<Side>('home');
+  const [hasRedrawn, setHasRedrawn] = useState(false);
   const [preview, setPreview] = useState<CalibrationPreview | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -106,26 +110,25 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
       <section className="card">
         <h2>Zones du score</h2>
         <p className="muted">
-          À refaire seulement si le bandeau change de place. Lance la capture, reviens dans le jeu en plein match, puis
-          entoure chaque chiffre du score au plus près, sans toucher le bord du bandeau.
+          Lance la capture puis reviens dans le jeu en plein match : l’image s’affiche avec les deux zones lues. Les
+          zones ne sont à retracer que si le bandeau a changé de place : entoure alors chaque chiffre au plus près,
+          sans toucher le bord du bandeau.
         </p>
         <div className="actions">
           <button className="button" disabled={countdown !== null} onClick={() => void capture()}>
             {countdown === null ? `Capturer dans ${CAPTURE_DELAY_SECONDS} s` : `Capture dans ${countdown} s…`}
           </button>
-          {(Object.keys(SIDE_LABELS) as Side[]).map((side) => (
-            <button
-              key={side}
-              className={side === activeSide ? `button button-side-${side}` : 'button button-secondary'}
-              onClick={() => setActiveSide(side)}
-            >
-              Dessiner : {SIDE_LABELS[side].toLowerCase()}
+          {hasRedrawn && (
+            <button className="button" onClick={() => void save()}>
+              Enregistrer les zones
             </button>
-          ))}
-          <button className="button" disabled={frame === null} onClick={() => void save()}>
-            Enregistrer les zones
-          </button>
+          )}
         </div>
+        {frame !== null && (
+          <p className="message">
+            Pour recalibrer, trace un rectangle autour du {SIDE_LABELS[activeSide].toLowerCase()} sur l’image.
+          </p>
+        )}
         {message !== null && <p className="message message-fair">{message}</p>}
       </section>
       <section className="card">
@@ -144,6 +147,10 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
           regions={regions}
           activeSide={activeSide}
           onChange={(region) => setRegions((current) => ({ ...current, [activeSide]: region }))}
+          onDrawEnd={() => {
+            setHasRedrawn(true);
+            setActiveSide(OTHER_SIDE[activeSide]);
+          }}
         />
       )}
     </div>
