@@ -17,7 +17,7 @@ const DEFAULT_SCORE_REGIONS = {
 
 const settingsSchema = z.object({
   discordWebhookUrl: z.union([z.literal(''), z.url({ protocol: /^https$/ })]).default(''),
-  messageTemplate: z.string().default('⚽ But de {scorer} : {home} - {away}'),
+  messageTemplate: z.string().default('⚽ But de {scorer} : {homeTeam} {home} - {away} {awayTeam}'),
   deleteLocalFiles: z.boolean().default(true),
   clipSeconds: z.number().min(5).max(MAX_CLIP_SECONDS).default(20),
   postGoalDelaySeconds: z.number().min(0).max(MAX_POST_GOAL_DELAY_SECONDS).default(5),

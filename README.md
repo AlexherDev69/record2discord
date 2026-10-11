@@ -70,7 +70,7 @@ Fermer la fenêtre laisse l'application tourner dans la zone de notification. Po
 
 | Réglage | Rôle |
 |---|---|
-| Message | Texte posté avec le clip. `{home}` et `{away}` sont remplacés par le score, `{scorer}` par le nom de l'équipe qui a marqué (l'abréviation lue sur le bandeau, par exemple `ACH`). |
+| Message | Texte posté avec le clip. `{home}` et `{away}` sont remplacés par les scores, `{homeTeam}` et `{awayTeam}` par l'équipe à domicile (en haut du bandeau) et à l'extérieur (en bas), `{scorer}` par l'équipe qui a marqué. Les noms sont les abréviations lues sur le bandeau, par exemple `ACH`. |
 | Durée du clip | Longueur du clip envoyé. Plus il est court, meilleure est l'image. |
 | Secondes gardées après le but | Temps de célébration conservé à la fin du clip. |
 | Résolution | 720p ou 1080p. |

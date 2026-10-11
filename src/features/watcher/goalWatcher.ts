@@ -15,7 +15,7 @@ import type { TeamNameReader } from '../detection/data/teamNameReader';
 import { GoalDetector, type DigitRecognizer, type Goal } from '../detection/domain/goalDetector';
 import { shouldRecordGoal } from '../detection/domain/teamFilter';
 import { publishClip } from '../publishing/data/discordPublisher';
-import { formatGoalMessage } from '../publishing/domain/goalMessage';
+import { formatGoalMessage, type GoalMessageData } from '../publishing/domain/goalMessage';
 import { describeObsError, ObsClient } from '../recording/data/obsClient';
 import { launchObsIfNeeded } from '../recording/data/obsLauncher';
 
@@ -120,13 +120,13 @@ export class GoalWatcher {
   /** `frame` is the one the goal was detected on, so the scoreboard is visible in it. */
   private async publishGoal({ score, scorer }: Goal, frame: Buffer): Promise<void> {
     const record: GoalRecord = { time: Date.now(), score, published: false, error: null };
-    const team = await this.readTeamName(frame, scorer);
-    if (!shouldRecordGoal(this.options.settings.recordedTeams, team)) {
-      logger.info({ score, team }, 'Goal skipped: team is not in the recorded teams');
+    const teams = { home: await this.readTeamName(frame, 'home'), away: await this.readTeamName(frame, 'away') };
+    if (!shouldRecordGoal(this.options.settings.recordedTeams, teams[scorer])) {
+      logger.info({ score, team: teams[scorer] }, 'Goal skipped: team is not in the recorded teams');
       return;
     }
     try {
-      await this.recordAndPublish(score, team);
+      await this.recordAndPublish({ score, teams, scorer });
       logger.info({ score }, 'Goal clip published');
       this.options.onGoal({ ...record, published: true });
     } catch (error: unknown) {
@@ -145,7 +145,7 @@ export class GoalWatcher {
     }
   }
 
-  private async recordAndPublish(score: Score, scorer: string | null): Promise<void> {
+  private async recordAndPublish(goal: GoalMessageData): Promise<void> {
     const { settings, ffmpegPath } = this.options;
     if (settings.discordWebhookUrl === '') {
       throw new Error('Le webhook Discord n’est pas configuré.');
@@ -157,8 +157,7 @@ export class GoalWatcher {
       height: settings.clipHeight,
       targetBytes: settings.maxClipSizeMb * BYTES_PER_MEGABYTE * CLIP_SIZE_SAFETY_RATIO,
     });
-    const message = formatGoalMessage(settings.messageTemplate, score, scorer);
-    await publishClip(settings.discordWebhookUrl, clipPath, message);
+    await publishClip(settings.discordWebhookUrl, clipPath, formatGoalMessage(settings.messageTemplate, goal));
     if (settings.deleteLocalFiles) {
       await Promise.all([rm(replayPath), rm(clipPath)]);
     }
