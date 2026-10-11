@@ -1,7 +1,7 @@
 {
   "name": "record2discord",
   "productName": "Record2Discord",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "Clips goals automatically and posts them to a Discord channel",
   "author": "AlexherApps",
   "private": true,

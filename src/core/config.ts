@@ -35,7 +35,8 @@ export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export const CLIP_FPS = 30;
 export const CLIP_AUDIO_KBPS = 96;
-export const CLIP_VIDEO_ENCODER = 'h264_nvenc';
+// Tried in this order: NVIDIA, AMD and Intel graphics cards, then the processor, which always works.
+export const CLIP_VIDEO_ENCODERS = ['h264_nvenc', 'h264_amf', 'h264_qsv', 'libx264'] as const;
 export const CLIP_HEIGHT_OPTIONS = [720, 1080] as const;
 // Discord upload limits: default server, boost level 2, boost level 3.
 export const CLIP_MAX_SIZE_MB_OPTIONS = [10, 50, 100] as const;

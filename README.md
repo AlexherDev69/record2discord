@@ -31,7 +31,7 @@ Un raccourci clavier permet aussi d'envoyer les dernières secondes à la demand
 |---|---|
 | Système | Windows 10 ou 11 |
 | Capture | [OBS Studio](https://obsproject.com/fr) 28 ou plus récent |
-| Carte graphique | NVIDIA (l'encodage des clips utilise NVENC) |
+| Carte graphique | NVIDIA, AMD ou Intel. Sans encodeur matériel, le clip est encodé par le processeur |
 | Discord | Un salon dont tu peux gérer les webhooks |
 
 ## Installation
@@ -60,7 +60,7 @@ Un raccourci clavier permet aussi d'envoyer les dernières secondes à la demand
 **3. Régler l'enregistrement**
 
 - **Paramètres > Sortie** : **Mode de sortie** sur **Avancé**.
-- Onglet **Enregistrement** : format MP4 ou MKV, encodeur **NVIDIA NVENC H.264**.
+- Onglet **Enregistrement** : format MP4 ou MKV, encodeur matériel H.264 de ta carte graphique (**NVIDIA NVENC H.264**, **AMD HW H.264 (AVC)** ou **QuickSync H.264**).
 - Contrôle du débit : **CBR à 20 000 Kbps**.
 
 **4. Activer le tampon de relecture**

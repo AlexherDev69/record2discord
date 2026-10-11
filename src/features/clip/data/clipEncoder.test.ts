@@ -18,6 +18,13 @@ function argumentAfter(flag: string): string | undefined {
   return ffmpegArguments()[ffmpegArguments().indexOf(flag) + 1];
 }
 
+function encodersTried(): string[] {
+  return execFileMock.mock.calls.map((call) => {
+    const callArguments = call[1] as string[];
+    return callArguments[callArguments.indexOf('-c:v') + 1] ?? '';
+  });
+}
+
 function ffmpegAnswers(error: Error | null): void {
   execFileMock.mockImplementation((_file: string, _args: string[], _options: object, callback: ExecFileCallback) => {
     callback(error, { stdout: '', stderr: '' });
@@ -52,6 +59,34 @@ describe('encodeClip', () => {
   it('should give ffmpeg a time limit', async () => {
     await encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS);
     expect(execFileMock.mock.calls[0]?.[2]).toEqual({ timeout: expect.any(Number) });
+  });
+
+  it('should use the NVIDIA encoder first', async () => {
+    await encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS);
+    expect(execFileMock).toHaveBeenCalledTimes(1);
+    expect(argumentAfter('-c:v')).toBe('h264_nvenc');
+  });
+
+  it('should fall back to the AMD encoder when the NVIDIA one is unavailable', async () => {
+    execFileMock.mockImplementationOnce(
+      (_file: string, _args: string[], _options: object, callback: ExecFileCallback) => {
+        callback(new Error('Cannot load nvcuda.dll'), { stdout: '', stderr: '' });
+      },
+    );
+    expect(await encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS)).toBe('goal.mkv.discord.mp4');
+    expect(encodersTried()).toEqual(['h264_nvenc', 'h264_amf']);
+  });
+
+  it('should try every encoder down to the processor one when all fail', async () => {
+    ffmpegAnswers(new Error('encoder not found'));
+    await expect(encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS)).rejects.toThrow();
+    expect(encodersTried()).toEqual(['h264_nvenc', 'h264_amf', 'h264_qsv', 'libx264']);
+  });
+
+  it('should not try another encoder when ffmpeg ran out of time', async () => {
+    ffmpegAnswers(Object.assign(new Error('timed out'), { killed: true }));
+    await expect(encodeClip('ffmpeg.exe', 'goal.mkv', OPTIONS)).rejects.toThrow('timed out');
+    expect(execFileMock).toHaveBeenCalledTimes(1);
   });
 
   it('should throw when ffmpeg fails', async () => {
