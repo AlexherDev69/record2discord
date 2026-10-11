@@ -83,6 +83,8 @@ Fermer la fenêtre laisse l'application tourner dans la zone de notification. Po
 
 Les zones du score sont préréglées pour le bandeau d'EA Sports FC 27 sur un écran 16:9. L'onglet **Calibration** ne sert que si le bandeau change de place (mise à jour du jeu, autre taille de HUD, écran ultra-large) : capture une image en match, puis entoure chaque chiffre du score à la souris.
 
+Pour vérifier la calibration sans rien toucher, ouvre l'onglet **Calibration** pendant un match : le bloc **Ce que lit l'application** affiche en direct l'image de chaque zone et le chiffre reconnu. Chaque image doit montrer un seul chiffre entier. Si le jeu se met en pause quand tu le quittes, la dernière lecture faite en match reste affichée.
+
 ## Limites connues
 
 - Le score affiché dans le message est fiable de 0 à 9. Au-delà, il est compté à partir du dernier score lu.

@@ -31,4 +31,7 @@ export function registerIpcHandlers(controller: AppController): void {
   ipcMain.handle(IPC_CHANNELS.previewRegions, (_event, regions: ScoreRegions) =>
     toResult(() => controller.previewRegions(regions)),
   );
+  ipcMain.handle(IPC_CHANNELS.previewLiveRegions, (_event, regions: ScoreRegions) =>
+    toResult(() => controller.previewLiveRegions(regions)),
+  );
 }

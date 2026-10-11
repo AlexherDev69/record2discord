@@ -89,6 +89,15 @@ export class AppController {
     if (frame === null) {
       throw new Error('Capture d’abord une image du jeu.');
     }
+    return this.previewFrame(frame, regions);
+  }
+
+  /** Previews the regions on the current OBS output, to check the calibration without capturing. */
+  async previewLiveRegions(regions: ScoreRegions): Promise<CalibrationPreview> {
+    return this.previewFrame(await this.watcher.captureFrame(), regions);
+  }
+
+  private async previewFrame(frame: Buffer, regions: ScoreRegions): Promise<CalibrationPreview> {
     return { home: await this.previewRegion(frame, regions.home), away: await this.previewRegion(frame, regions.away) };
   }
 

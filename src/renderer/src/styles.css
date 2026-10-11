@@ -322,7 +322,6 @@ select:focus {
 .previews {
   display: flex;
   gap: 24px;
-  margin-top: 16px;
 }
 
 .preview img {

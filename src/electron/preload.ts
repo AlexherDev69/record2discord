@@ -13,6 +13,7 @@ const api: AppApi = {
   testWebhook: (webhookUrl) => ipcRenderer.invoke(IPC_CHANNELS.testWebhook, webhookUrl),
   captureFrame: (delaySeconds) => ipcRenderer.invoke(IPC_CHANNELS.captureFrame, delaySeconds),
   previewRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.previewRegions, regions),
+  previewLiveRegions: (regions) => ipcRenderer.invoke(IPC_CHANNELS.previewLiveRegions, regions),
 };
 
 contextBridge.exposeInMainWorld('api', api);

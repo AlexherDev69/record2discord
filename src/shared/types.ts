@@ -75,6 +75,7 @@ export interface AppApi {
   testWebhook(webhookUrl: string): Promise<IpcResult<null>>;
   captureFrame(delaySeconds: number): Promise<IpcResult<string>>;
   previewRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
+  previewLiveRegions(regions: ScoreRegions): Promise<IpcResult<CalibrationPreview>>;
 }
 
 export const IPC_CHANNELS = {
@@ -85,4 +86,5 @@ export const IPC_CHANNELS = {
   testWebhook: 'discord:test',
   captureFrame: 'calibration:capture',
   previewRegions: 'calibration:preview',
+  previewLiveRegions: 'calibration:preview-live',
 } as const;

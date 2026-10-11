@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CalibrationPreview, IpcResult, RegionPreview, ScoreRegions, Settings } from '../../../shared/types';
+import { useLivePreview } from '../hooks/useLivePreview';
+import { isScoreboardVisible, type LivePreview } from '../lib/livePreview';
 import { RegionSelector, type Side } from './RegionSelector';
 
 interface CalibrationPanelProps {
@@ -15,6 +17,7 @@ interface SidePreviewProps {
 // Leaves time to switch back to the game, which pauses when it loses focus.
 const CAPTURE_DELAY_SECONDS = 10;
 const MS_PER_SECOND = 1000;
+const CAPTURE_NOTE = 'Lecture sur l’image capturée, avec les zones en cours de dessin.';
 
 const SIDE_LABELS: Record<Side, string> = {
   home: 'Score du haut',
@@ -26,6 +29,21 @@ function describePreview(preview: RegionPreview): string {
     return 'Pas un chiffre du bandeau';
   }
   return preview.digit === null ? 'Chiffre non reconnu' : `Lu : ${preview.digit}`;
+}
+
+function describeLive(livePreview: LivePreview | null, error: string | null): string {
+  if (error !== null) {
+    return error;
+  }
+  if (livePreview === null) {
+    return 'Lecture en cours…';
+  }
+  if (!livePreview.isCurrent) {
+    return 'Bandeau masqué (jeu en pause ?) : voici la dernière lecture faite en match.';
+  }
+  return isScoreboardVisible(livePreview.preview)
+    ? 'Lecture en direct. Chaque image doit montrer un seul chiffre entier, et le chiffre lu doit être le bon.'
+    : 'Bandeau du score introuvable pour l’instant. Lance un match : la lecture se met à jour toute seule.';
 }
 
 function SidePreview({ label, preview }: SidePreviewProps) {
@@ -62,6 +80,9 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
     const timer = setTimeout(() => setCountdown(countdown - 1), MS_PER_SECOND);
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  const live = useLivePreview(regions, frame === null);
+  const shownPreview = frame === null ? (live.livePreview?.preview ?? null) : preview;
 
   const capture = async (): Promise<void> => {
     setMessage(null);
@@ -106,10 +127,14 @@ export function CalibrationPanel({ settings, onSave }: CalibrationPanelProps) {
           </button>
         </div>
         {message !== null && <p className="message message-fair">{message}</p>}
-        {preview !== null && (
+      </section>
+      <section className="card">
+        <h2>Ce que lit l’application</h2>
+        <p className="muted">{frame === null ? describeLive(live.livePreview, live.error) : CAPTURE_NOTE}</p>
+        {shownPreview !== null && (
           <div className="previews">
-            <SidePreview label={SIDE_LABELS.home} preview={preview.home} />
-            <SidePreview label={SIDE_LABELS.away} preview={preview.away} />
+            <SidePreview label={SIDE_LABELS.home} preview={shownPreview.home} />
+            <SidePreview label={SIDE_LABELS.away} preview={shownPreview.away} />
           </div>
         )}
       </section>
