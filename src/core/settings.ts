@@ -5,6 +5,8 @@ import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from './config';
 const MAX_CLIP_SECONDS = 60;
 const MAX_POST_GOAL_DELAY_SECONDS = 30;
 const MAX_RECORDED_TEAMS_LENGTH = 200;
+// Empty, or keys joined with "+", e.g. "Ctrl+Shift+F9".
+const SHORTCUT_PATTERN = /^(?:[A-Za-z0-9]+(?:\+[A-Za-z0-9]+){0,3})?$/;
 
 const fraction = z.number().min(0).max(1);
 const regionSchema = z.object({ left: fraction, top: fraction, width: fraction, height: fraction });
@@ -30,6 +32,7 @@ const settingsSchema = z.object({
   startWithWindows: z.boolean().default(false),
   scoreRegions: z.object({ home: regionSchema, away: regionSchema }).default(DEFAULT_SCORE_REGIONS),
   recordedTeams: z.string().max(MAX_RECORDED_TEAMS_LENGTH).default(''),
+  manualClipShortcut: z.string().regex(SHORTCUT_PATTERN).default(''),
 });
 
 /** Validates settings coming from the UI or from disk, filling missing fields with defaults. */

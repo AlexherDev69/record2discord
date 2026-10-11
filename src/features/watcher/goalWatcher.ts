@@ -15,11 +15,12 @@ import type { TeamNameReader } from '../detection/data/teamNameReader';
 import { GoalDetector, type DigitRecognizer, type Goal } from '../detection/domain/goalDetector';
 import { shouldRecordGoal } from '../detection/domain/teamFilter';
 import { publishClip } from '../publishing/data/discordPublisher';
-import { formatGoalMessage, type GoalMessageData } from '../publishing/domain/goalMessage';
+import { formatGoalMessage } from '../publishing/domain/goalMessage';
 import { describeObsError, ObsClient } from '../recording/data/obsClient';
 import { launchObsIfNeeded } from '../recording/data/obsLauncher';
 
 const MS_PER_SECOND = 1000;
+const MANUAL_CLIP_MESSAGE = 'Extrait enregistré manuellement';
 
 export interface GoalWatcherOptions {
   settings: Settings;
@@ -119,18 +120,34 @@ export class GoalWatcher {
 
   /** `frame` is the one the goal was detected on, so the scoreboard is visible in it. */
   private async publishGoal({ score, scorer }: Goal, frame: Buffer): Promise<void> {
-    const record: GoalRecord = { time: Date.now(), score, published: false, error: null };
+    const { settings } = this.options;
+    const time = Date.now();
     const teams = { home: await this.readTeamName(frame, 'home'), away: await this.readTeamName(frame, 'away') };
-    if (!shouldRecordGoal(this.options.settings.recordedTeams, teams[scorer])) {
+    if (!shouldRecordGoal(settings.recordedTeams, teams[scorer])) {
       logger.info({ score, team: teams[scorer] }, 'Goal skipped: team is not in the recorded teams');
       return;
     }
+    const message = formatGoalMessage(settings.messageTemplate, { score, teams, scorer });
+    await this.publishClipFor({ time, score }, message, settings.postGoalDelaySeconds);
+  }
+
+  /** Publishes the last seconds of the replay buffer, on the user's request. */
+  async publishManualClip(): Promise<void> {
+    await this.publishClipFor({ time: Date.now(), score: null }, MANUAL_CLIP_MESSAGE, 0);
+  }
+
+  private async publishClipFor(
+    clip: Pick<GoalRecord, 'time' | 'score'>,
+    message: string,
+    delaySeconds: number,
+  ): Promise<void> {
+    const record: GoalRecord = { ...clip, published: false, error: null };
     try {
-      await this.recordAndPublish({ score, teams, scorer });
-      logger.info({ score }, 'Goal clip published');
+      await this.recordAndPublish(message, delaySeconds);
+      logger.info({ score: clip.score }, 'Clip published');
       this.options.onGoal({ ...record, published: true });
     } catch (error: unknown) {
-      logger.error({ err: error, score }, 'Goal clip failed');
+      logger.error({ err: error, score: clip.score }, 'Clip failed');
       this.options.onGoal({ ...record, error: error instanceof Error ? error.message : String(error) });
     }
   }
@@ -145,19 +162,19 @@ export class GoalWatcher {
     }
   }
 
-  private async recordAndPublish(goal: GoalMessageData): Promise<void> {
+  private async recordAndPublish(message: string, delaySeconds: number): Promise<void> {
     const { settings, ffmpegPath } = this.options;
     if (settings.discordWebhookUrl === '') {
       throw new Error('Le webhook Discord n’est pas configuré.');
     }
-    await sleep(settings.postGoalDelaySeconds * MS_PER_SECOND);
+    await sleep(delaySeconds * MS_PER_SECOND);
     const replayPath = await this.obs.saveReplay();
     const clipPath = await encodeClip(ffmpegPath, replayPath, {
       clipSeconds: settings.clipSeconds,
       height: settings.clipHeight,
       targetBytes: settings.maxClipSizeMb * BYTES_PER_MEGABYTE * CLIP_SIZE_SAFETY_RATIO,
     });
-    await publishClip(settings.discordWebhookUrl, clipPath, formatGoalMessage(settings.messageTemplate, goal));
+    await publishClip(settings.discordWebhookUrl, clipPath, message);
     if (settings.deleteLocalFiles) {
       await Promise.all([rm(replayPath), rm(clipPath)]);
     }

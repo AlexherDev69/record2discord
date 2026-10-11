@@ -31,6 +31,15 @@ describe('parseSettings', () => {
     expect(DEFAULT_SETTINGS.recordedTeams).toBe('');
   });
 
+  it('should accept a shortcut when it is keys joined with a plus sign', () => {
+    expect(parseSettings({ manualClipShortcut: 'Ctrl+Shift+F9' }).manualClipShortcut).toBe('Ctrl+Shift+F9');
+    expect(DEFAULT_SETTINGS.manualClipShortcut).toBe('');
+  });
+
+  it('should throw when the shortcut is not a key combination', () => {
+    expect(() => parseSettings({ manualClipShortcut: 'F9; rm' })).toThrow();
+  });
+
   it('should throw when the clip height is not a supported resolution', () => {
     expect(() => parseSettings({ clipHeight: 900 })).toThrow();
   });

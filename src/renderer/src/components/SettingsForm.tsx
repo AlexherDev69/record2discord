@@ -3,6 +3,7 @@ import { CLIP_HEIGHT_OPTIONS, CLIP_MAX_SIZE_MB_OPTIONS } from '../../../core/con
 import type { IpcResult, Settings } from '../../../shared/types';
 import { ClipQualityHint } from './ClipQualityHint';
 import { CheckboxField, NumberField, Section, SelectField, TextField } from './fields';
+import { ShortcutField } from './ShortcutField';
 
 interface SettingsFormProps {
   settings: Settings;
@@ -108,6 +109,15 @@ export function SettingsForm({ settings, onSave }: SettingsFormProps) {
           hint="Efface le replay d’OBS et le clip une fois Discord servi. Rien n’est supprimé si l’envoi échoue."
           checked={draft.deleteLocalFiles}
           onChange={(checked) => update('deleteLocalFiles', checked)}
+        />
+      </Section>
+
+      <Section title="Extrait manuel">
+        <ShortcutField
+          label="Raccourci clavier"
+          hint="Fonctionne aussi en jeu : envoie les dernières secondes sur Discord (durée du clip ci-dessus). La touche n’est alors plus transmise au jeu. Retour arrière pour le retirer."
+          value={draft.manualClipShortcut}
+          onChange={(value) => update('manualClipShortcut', value)}
         />
       </Section>
 

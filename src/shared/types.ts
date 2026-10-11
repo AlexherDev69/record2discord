@@ -33,6 +33,8 @@ export interface Settings {
   scoreRegions: ScoreRegions;
   /** Team abbreviations whose goals are recorded, as typed by the user. Empty records every goal. */
   recordedTeams: string;
+  /** System-wide shortcut posting the last seconds on demand, e.g. `Ctrl+Shift+F9`. Empty disables it. */
+  manualClipShortcut: string;
 }
 
 export interface WatcherStatus {
@@ -45,7 +47,8 @@ export interface WatcherStatus {
 export interface GoalRecord {
   /** Detection time in milliseconds since epoch, also used as identifier. */
   time: number;
-  score: Score;
+  /** Null for a clip requested with the keyboard shortcut. */
+  score: Score | null;
   published: boolean;
   error: string | null;
 }

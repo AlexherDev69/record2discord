@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, Menu, nativeImage, safeStorage, Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, Menu, nativeImage, safeStorage, Tray } from 'electron';
 import { addLogFile, logger } from '../core/logger';
 import { SettingsStore, type SettingsCodec } from '../core/settingsStore';
 import { DigitLibrary } from '../features/detection/data/digitLibrary';
@@ -44,6 +44,21 @@ const encryptedCodec: SettingsCodec = {
 function applyStartWithWindows(settings: Settings): void {
   if (app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: settings.startWithWindows, args: [HIDDEN_FLAG] });
+  }
+}
+
+/** Binds the system-wide shortcut, which works while the game has the focus. */
+function applyManualClipShortcut(shortcut: string, onPressed: () => void): void {
+  globalShortcut.unregisterAll();
+  if (shortcut === '') {
+    return;
+  }
+  try {
+    if (!globalShortcut.register(shortcut, onPressed)) {
+      logger.warn({ shortcut }, 'Shortcut is already used by another application');
+    }
+  } catch (error: unknown) {
+    logger.warn({ err: error, shortcut }, 'Shortcut could not be registered');
   }
 }
 
@@ -102,7 +117,10 @@ async function bootstrap(): Promise<void> {
     teamNames: new TeamNameReader(bundledPath('tessdata', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int')),
     ffmpegPath: bundledPath('ffmpeg.exe', 'node_modules/ffmpeg-static/ffmpeg.exe'),
     onStateChanged: (state) => window?.webContents.send(IPC_CHANNELS.stateChanged, state),
-    onSettingsApplied: applyStartWithWindows,
+    onSettingsApplied: (settings) => {
+      applyStartWithWindows(settings);
+      applyManualClipShortcut(settings.manualClipShortcut, () => void controller.publishManualClip());
+    },
   });
   registerIpcHandlers(controller);
   window = createWindow();

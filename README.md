@@ -76,6 +76,7 @@ Fermer la fenêtre laisse l'application tourner dans la zone de notification. Po
 | Résolution | 720p ou 1080p. |
 | Taille maximale | 10 Mo par défaut, 50 ou 100 Mo si le serveur Discord est boosté. |
 | Supprimer les fichiers locaux | Efface le replay et le clip une fois l'envoi réussi. |
+| Raccourci clavier (extrait manuel) | Touche qui envoie les dernières secondes sur Discord à la demande, même en jeu, avec le message « Extrait enregistré manuellement ». La durée est celle du clip. |
 | Lancer OBS automatiquement | Ouvre OBS réduit s'il n'est pas déjà lancé. |
 | Démarrer avec Windows | Lance l'application réduite à l'ouverture de session. |
 

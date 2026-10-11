@@ -72,6 +72,11 @@ export class AppController {
     return settings;
   }
 
+  /** Posts the last seconds of the replay buffer, for the keyboard shortcut. */
+  async publishManualClip(): Promise<void> {
+    await this.watcher.publishManualClip();
+  }
+
   async testWebhook(webhookUrl: string): Promise<void> {
     if (webhookUrl === '') {
       throw new Error('Renseigne d’abord l’URL du webhook.');

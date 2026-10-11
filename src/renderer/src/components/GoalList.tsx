@@ -21,7 +21,9 @@ export function GoalList({ goals }: GoalListProps) {
         <li key={goal.time} className="goal">
           <span className="goal-time">{formatTime(goal.time)}</span>
           <span className="goal-score">
-            {goal.score.home ?? UNKNOWN_SCORE} - {goal.score.away ?? UNKNOWN_SCORE}
+            {goal.score === null
+              ? 'Manuel'
+              : `${goal.score.home ?? UNKNOWN_SCORE} - ${goal.score.away ?? UNKNOWN_SCORE}`}
           </span>
           <span className={goal.published ? 'goal-status goal-ok' : 'goal-status goal-failed'}>
             {goal.published ? 'Envoyé sur Discord' : (goal.error ?? 'Échec')}
