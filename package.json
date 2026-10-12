@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "Clips goals automatically and posts them to a Discord channel",
   "author": "AlexherApps",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "out/main/main.js",
