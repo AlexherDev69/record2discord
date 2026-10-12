@@ -152,7 +152,11 @@ Les journaux et les réglages sont stockés dans `%APPDATA%\Record2Discord`. Le 
 
 L'installeur embarque [FFmpeg](https://ffmpeg.org), distribué sous licence GPL (binaire fourni par le paquet `ffmpeg-static`), et le moteur de reconnaissance de texte [Tesseract](https://github.com/tesseract-ocr/tesseract) (licence Apache 2.0) avec son modèle anglais.
 
-Record2Discord n'est affilié ni à Electronic Arts, ni à Discord, ni au projet OBS.
+## Licence et mentions
+
+Le code de Record2Discord est distribué sous [licence MIT](LICENSE).
+
+Projet indépendant, non affilié à Electronic Arts ni approuvé par elle. EA Sports FC est une marque d'Electronic Arts Inc. Record2Discord n'est pas non plus affilié à Discord ni au projet OBS.
 
 <br />
 
